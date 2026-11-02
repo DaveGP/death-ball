@@ -1,4 +1,5 @@
 using UnityEngine;
+using Hazards;
 using Match;
 using Players;
 using SystemManagement;
@@ -16,6 +17,8 @@ namespace DependencyInjection
 			InitialisePlayers();
 
 			InitialiseMatchSettings();
+
+			ServiceLocator.Register<HazardMap>(new HazardMap());
 
 			Debug.Log("Bootstrapper: Services registered.");
 		}

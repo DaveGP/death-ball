@@ -18,6 +18,8 @@ namespace Character.Movement
 
 		public bool IsDodging => Time.time < dodgeEndTime;
 
+		public bool IsKnockedBack => Time.time < knockbackEndTime;
+
 		public CharacterGait Gait { get; private set; }
 
 		public CharacterStats Stats => stats;
@@ -25,6 +27,8 @@ namespace Character.Movement
 		[SerializeField] private CharacterStats stats;
 
 		[SerializeField] private float groundCheckDistance = 0.1f;
+
+		private const float KnockbackDuration = 0.25f;
 
 		private Rigidbody rigidbody;
 
@@ -44,6 +48,10 @@ namespace Character.Movement
 		private bool isCarrying;
 
 		private bool isHasted;
+
+		private Vector3 knockbackVelocity;
+
+		private float knockbackEndTime;
 
 
 		private void Awake()
@@ -77,9 +85,36 @@ namespace Character.Movement
 			isHasted = hasted;
 		}
 
+		/// <summary>
+		/// Throws the character, overriding their own movement for a moment.
+		/// </summary>
+		public void ApplyKnockback(Vector3 velocity)
+		{
+			knockbackVelocity = new Vector3(velocity.x, 0f, velocity.z);
+
+			knockbackEndTime = Time.time + KnockbackDuration;
+
+			if (velocity.y > 0f)
+			{
+				var current = rigidbody.linearVelocity;
+				current.y = Mathf.Max(current.y, velocity.y);
+				rigidbody.linearVelocity = current;
+			}
+		}
+
 		public void Move(Vector2 direction)
 		{
 			var velocity = rigidbody.linearVelocity;
+
+			if (IsKnockedBack)
+			{
+				velocity.x = knockbackVelocity.x;
+				velocity.z = knockbackVelocity.z;
+
+				rigidbody.linearVelocity = velocity;
+
+				return;
+			}
 
 			var horizontal = new Vector3(velocity.x, 0f, velocity.z);
 

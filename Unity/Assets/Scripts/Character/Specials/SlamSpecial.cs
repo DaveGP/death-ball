@@ -20,6 +20,8 @@ namespace Character.Specials
 
 		public Hit Hit = new(12, 1f, true);
 
+		public float Knockback = 7f;
+
 		// The AI saves it for a crowd, or for the opposing carrier
 		public int AICrowd = 2;
 
@@ -46,9 +48,17 @@ namespace Character.Specials
 				// No attacker, so a special never charges its user's meter towards the next one
 				var result = target.GetComponent<CharacterHealth>().TakeHit(Hit);
 
-				// Knocked away from the slam
-				if (result == HitResult.Landed && ball != null && ball.Carrier == target)
-					ball.Strip(target.transform.position - user.transform.position);
+				if (result != HitResult.Landed)
+					continue;
+
+				// Thrown away from the slam, dropping the ball
+				var away = target.transform.position - user.transform.position;
+				away.y = 0f;
+
+				target.Knockback(away.normalized * Knockback + Vector3.up * 3f);
+
+				if (ball != null && ball.Carrier == target)
+					ball.Strip(away);
 			}
 
 			return true;

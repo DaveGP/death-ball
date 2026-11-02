@@ -3,6 +3,7 @@ using Character.Specials;
 using Data.Enums;
 using Data.Input;
 using DependencyInjection;
+using Hazards;
 using Match;
 using UnityEngine;
 
@@ -21,6 +22,9 @@ namespace AI
 		private const float ShootRange = 12f;
 
 		private const float StrikeRange = 1.6f;
+
+		// A tackle reaches further than a punch, which also lets a hunter get at a carrier through a crowd
+		private const float TackleRange = 2.1f;
 
 		private const float ArriveDistance = 0.5f;
 
@@ -75,6 +79,8 @@ namespace AI
 
 		private readonly CharacterSpecial special;
 
+		private readonly HazardMap hazards;
+
 		private float nextActionTime;
 
 		private bool inStrikeRange;
@@ -87,6 +93,8 @@ namespace AI
 			this.team = team;
 
 			special = self.GetComponent<CharacterSpecial>();
+
+			hazards = ServiceLocator.Get<HazardMap>();
 		}
 
 		private Vector3 Position => self.transform.position;
@@ -101,6 +109,10 @@ namespace AI
 			// Each special knows when it's worth using
 			if (special.ShouldAIUse)
 				return new CharacterInput(Vector2.zero, Vector2.zero, CharacterAction.Special);
+
+			// Getting out of a hazard's way comes before the plan
+			if (hazards.TryGetEscape(Position, out var escape))
+				return new CharacterInput(escape, escape, CharacterAction.Sprint);
 
 			// Whatever the plan says, the ball is ours now
 			if (ball.Carrier == self)
@@ -284,7 +296,9 @@ namespace AI
 
 			var direction = offset.normalized;
 
-			if (offset.magnitude > StrikeRange)
+			var range = strike == CharacterAction.Tackle ? TackleRange : StrikeRange;
+
+			if (offset.magnitude > range)
 			{
 				inStrikeRange = false;
 

@@ -274,6 +274,7 @@ MonoBehaviour:
     Damage: 10
     Stagger: 0.6
     BreaksBlock: 0
+  hitKnockback: 3
   rehitDelay: 1.5
   deflectionBounce: 0.3
   kickoffLaunchSpeed: 6

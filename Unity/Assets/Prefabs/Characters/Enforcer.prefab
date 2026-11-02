@@ -520,6 +520,7 @@ MonoBehaviour:
       BreaksBlock: 0
     Range: 1.5
     Cooldown: 0.4
+    Knockback: 0
   heavyAttack:
     Hit:
       Damage: 25
@@ -527,6 +528,7 @@ MonoBehaviour:
       BreaksBlock: 1
     Range: 1.7
     Cooldown: 1.2
+    Knockback: 7
   tackle:
     Hit:
       Damage: 3
@@ -534,6 +536,7 @@ MonoBehaviour:
       BreaksBlock: 0
     Range: 2.2
     Cooldown: 1.5
+    Knockback: 5
   strikeAngle: 60
   stripStagger: 1
   rayHeight: 1

@@ -167,3 +167,17 @@ AI runs only on the server. Because it goes through the same motor code as human
 * Specials can put timed effects on a body, synced as end ticks like the stagger: **haste** (faster movement, free sprinting) and **fortify** (unbreakable guard).
 * The builder makes each type's stats asset once, from the defaults plus the type's changes, then leaves it alone so it can be tuned in the inspector. The same goes for special assets.
 * Silhouettes tell the types apart until there are models: a wide Bruiser, a slim Runner, and an Enforcer carrying a shield plate.
+
+## Arena Hazards
+
+* Every hazard derives from `Hazard`: a repeating cycle of off, warning (flashing) and live, with its own period, durations and offset so hazards don't all go off together. The cycle is computed from FishNet's synced tick, so every machine shows the same state with no networking; only the server applies effects. A hazard hits each player at most once per activation.
+* **Electric walls** - panels on the side walls. While live, anyone against one takes 15 damage (through their guard) and is thrown back into the arena.
+* **Floor vents** - grates that blast upward for a second. Anyone on one takes 20 damage and is thrown up and out; a loose ball on one is launched into the air (it can't score from that).
+* **Rising barriers** - blocks either side of halfway that rise for 8 s of every 18, closing off that lane. They move the same way on every machine from the shared cycle, so a human's own machine, which moves their body, collides with the same wall as the server.
+* Hazards hurt both teams and strip the ball from a carrier they hit.
+* `HazardMap` lists the arena's hazards so the AI can get out of the way: any AI standing where a hazard is warning or live runs clear first.
+
+## Knockback
+
+* Heavy attacks (7 m/s), tackles (5), Slam (7, and upward), shots that hit (3) and hazards throw their target, overriding its movement for a quarter of a second. Knocking an opponent into a live hazard is a tactic.
+* Like the teleport, the server sends knockback to whichever machine moves the body: the owner for a human, the server itself for AI.

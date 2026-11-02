@@ -51,6 +51,9 @@ namespace Match
 		[SerializeField]
 		private Hit ballHit = new(10, 0.6f);
 
+		[SerializeField]
+		private float hitKnockback = 3f;
+
 		// Someone the ball just hit can't be hit again this soon, so a shooter can't pin them with rebounds
 		[SerializeField]
 		private float rehitDelay = 1.5f;
@@ -244,6 +247,20 @@ namespace Match
 		}
 
 		/// <summary>
+		/// Throws a loose ball, for hazards. Doesn't count as a throw, so it can't score.
+		/// </summary>
+		[Server]
+		public void Launch(Vector3 velocity)
+		{
+			if (carrier.Value != null || !isLive)
+				return;
+
+			Thrower = null;
+
+			rigidbody.linearVelocity = velocity;
+		}
+
+		/// <summary>
 		/// Where a body holds the ball, and where throws leave from.
 		/// </summary>
 		public Vector3 HoldPosition(CharacterNetworkController body)
@@ -336,8 +353,18 @@ namespace Match
 		// A shot that hits someone hurts them and bounces off, and can no longer score
 		private bool TryHit(CharacterNetworkController body)
 		{
-			if (body.GetComponent<CharacterHealth>().TakeHit(ballHit, Thrower) == HitResult.Missed)
+			var result = body.GetComponent<CharacterHealth>().TakeHit(ballHit, Thrower);
+
+			if (result == HitResult.Missed)
 				return false;
+
+			if (result == HitResult.Landed)
+			{
+				var push = rigidbody.linearVelocity;
+				push.y = 0f;
+
+				body.Knockback(push.normalized * hitKnockback);
+			}
 
 			Thrower = null;
 

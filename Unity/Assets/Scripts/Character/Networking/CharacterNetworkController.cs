@@ -227,6 +227,25 @@ namespace Character.Networking
 		}
 
 		/// <summary>
+		/// Throws the body. A human's body is thrown on their own machine, because the owner has
+		/// authority over its transform.
+		/// </summary>
+		[Server]
+		public void Knockback(Vector3 velocity)
+		{
+			if (!Owner.IsValid || Owner.IsLocalClient)
+				GetComponent<MovementController>().ApplyKnockback(velocity);
+			else
+				OwnerKnockback(Owner, velocity);
+		}
+
+		[TargetRpc]
+		private void OwnerKnockback(NetworkConnection connection, Vector3 velocity)
+		{
+			GetComponent<MovementController>().ApplyKnockback(velocity);
+		}
+
+		/// <summary>
 		/// Moves the body instantly. A human's body is moved on their own machine,
 		/// because the owner has authority over its transform.
 		/// </summary>

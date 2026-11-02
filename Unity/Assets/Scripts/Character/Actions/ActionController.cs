@@ -28,11 +28,11 @@ namespace Character.Actions
 
 		// Slow, but goes through a block
 		[SerializeField]
-		private Attack heavyAttack = new(new Hit(25, 0.7f, true), 1.7f, 1.2f);
+		private Attack heavyAttack = new(new Hit(25, 0.7f, true), 1.7f, 1.2f, 7f);
 
 		// A lunge that knocks the target off their feet. The carrier can still do this, as a barge.
 		[SerializeField]
-		private Attack tackle = new(new Hit(3, 0.8f), 2.2f, 1.5f);
+		private Attack tackle = new(new Hit(3, 0.8f), 2.2f, 1.5f, 5f);
 
 		// How far either side of facing a hit can land
 		[SerializeField]
@@ -240,7 +240,18 @@ namespace Character.Actions
 
 			var result = target.GetComponent<CharacterHealth>().TakeHit(hit, body);
 
-			if (result != HitResult.Landed || !TryGetBall(out var ball) || ball.Carrier != target)
+			if (result != HitResult.Landed)
+				return;
+
+			if (attack.Knockback > 0f)
+			{
+				var away = target.transform.position - transform.position;
+				away.y = 0f;
+
+				target.Knockback(away.normalized * attack.Knockback);
+			}
+
+			if (!TryGetBall(out var ball) || ball.Carrier != target)
 				return;
 
 			// The ball spills back towards whoever made the hit, and the carrier reels from it

@@ -61,3 +61,11 @@ In the first AI matches the Runners were knocked out first every time: as the fa
 * Remote players were given their body before they had loaded the arena, and since owners move their own bodies, it fell through the missing floor. The server now asks a client for its players once FishNet says it is in the arena.
 * Clients joining mid-match were sent the match objects while still swapping scenes, and FishNet destroyed them. Match objects now use FishNet's scene condition and are spawned into the arena scene, so they are only sent to clients in it.
 * After a client went back to the menu, FishNet kept using holding scenes that the menu load had unloaded. `ReloadSafeSceneProcessor` makes new ones. Chosen over patching FishNet, which stays as shipped.
+
+## Arena Hazards
+
+02/11/2026 - Hazards run on a schedule from FishNet's synced tick instead of being networked objects. Every machine computes the same state, which also keeps the rising barriers in step on a human's own machine, where their body's collisions happen. Checked with two editors: host and client showed identical hazard states in every sample.
+
+In AI matches the AI almost never gets caught (one or two hazard hits in several minutes), because it runs clear of anything warning or live. Hazards matter more against humans and as a place to knock someone into; if AI-only play needs them to bite more, the AI could ignore warnings some of the time.
+
+An AI test match stalled with a carrier that never moved. It turned out to be an idle local player on the client editor holding the ball while the AI hunter was wedged outside its tackle range in a crowd. The AI now goes for a tackle from the tackle's own reach.

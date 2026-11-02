@@ -22,7 +22,8 @@
 * [x] Player types, each with its own special
 * [ ] Ball overcharge
 * [x] Team tactics AI
-* [ ] Arena hazards and more arenas
+* [x] Arena hazards: electric walls, floor vents, rising barriers
+* [ ] More arenas
 * [ ] League mode
 * [ ] Art, animation, audio and commentary
 * [ ] Polishing and optimisation

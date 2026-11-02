@@ -15,6 +15,7 @@ using FishNet.Managing;
 using FishNet.Managing.Object;
 using FishNet.Object;
 using FishNet.Observing;
+using Hazards;
 using Hud;
 using Match;
 using Networking;
@@ -466,6 +467,8 @@ namespace Builders
 
 			CreateArena();
 
+			CreateHazards();
+
 			var networkManagerObject = new GameObject("NetworkManager");
 			var networkManager = networkManagerObject.AddComponent<NetworkManager>();
 			networkManagerObject.AddComponent<NetworkStarter>();
@@ -539,6 +542,128 @@ namespace Builders
 			CreateBlock("Wall Right", arena.transform, new Vector3((ArenaWidth + wallThickness) / 2f, wallHeight / 2f, 0f), new Vector3(wallThickness, wallHeight, ArenaLength + wallThickness * 2f), wallMaterial, 0);
 			CreateBlock("Wall Home", arena.transform, new Vector3(0f, wallHeight / 2f, -(ArenaLength + wallThickness) / 2f), new Vector3(ArenaWidth, wallHeight, wallThickness), wallMaterial, 0);
 			CreateBlock("Wall Away", arena.transform, new Vector3(0f, wallHeight / 2f, (ArenaLength + wallThickness) / 2f), new Vector3(ArenaWidth, wallHeight, wallThickness), wallMaterial, 0);
+		}
+
+		// Hazards on staggered cycles so they don't all go off together
+		private static void CreateHazards()
+		{
+			var hazards = new GameObject("Hazards").transform;
+
+			var hazardMaterial = CreateMaterial("Hazard", Color.white);
+
+			// Electrified panels on both side walls, either side of halfway
+			const float panelLength = 8f;
+			const float panelHeight = 2.5f;
+
+			var panelIndex = 0;
+
+			foreach (var side in new[] { -1f, 1f })
+			{
+				foreach (var z in new[] { -10f, 10f })
+				{
+					var panel = new GameObject($"Electric Wall {panelIndex + 1}").transform;
+					panel.SetParent(hazards, false);
+					panel.SetPositionAndRotation(
+						new Vector3(side * (ArenaWidth / 2f - 0.05f), panelHeight / 2f, z),
+						Quaternion.LookRotation(Vector3.right * -side));
+
+					var visual = CreateVisual(PrimitiveType.Cube, "Panel", panel, Vector3.zero, new Vector3(panelLength, panelHeight, 0.15f), hazardMaterial);
+
+					var wall = panel.gameObject.AddComponent<ElectricWall>();
+					SetHazard(wall, period: 12f, warning: 2f, active: 3f, offset: panelIndex * 3f, visual,
+						new Color(0.2f, 0.25f, 0.35f), new Color(0.4f, 0.8f, 1f), new Color(0.6f, 0.95f, 1f));
+
+					var serialized = new SerializedObject(wall);
+					serialized.FindProperty("size").vector2Value = new Vector2(panelLength, panelHeight);
+					serialized.ApplyModifiedPropertiesWithoutUndo();
+
+					panelIndex++;
+				}
+			}
+
+			// Floor vents in the wide lanes of each half
+			const float ventSize = 3f;
+
+			var blastMaterial = CreateTransparentMaterial("Vent Blast", new Color(1f, 0.45f, 0.1f, 0.45f));
+
+			var ventIndex = 0;
+
+			foreach (var x in new[] { -9f, 9f })
+			{
+				foreach (var z in new[] { -15f, 15f })
+				{
+					var vent = new GameObject($"Floor Vent {ventIndex + 1}").transform;
+					vent.SetParent(hazards, false);
+					vent.position = new Vector3(x, 0.01f, z);
+
+					var grate = CreateVisual(PrimitiveType.Cube, "Grate", vent, Vector3.zero, new Vector3(ventSize, 0.02f, ventSize), hazardMaterial);
+
+					var blast = CreateVisual(PrimitiveType.Cube, "Blast", vent, Vector3.up * 1.5f, new Vector3(ventSize, 3f, ventSize), blastMaterial);
+					blast.gameObject.SetActive(false);
+
+					var floorVent = vent.gameObject.AddComponent<FloorVent>();
+					SetHazard(floorVent, period: 10f, warning: 1.5f, active: 1f, offset: ventIndex * 2.5f, grate,
+						new Color(0.2f, 0.2f, 0.2f), new Color(1f, 0.6f, 0.1f), new Color(1f, 0.3f, 0.05f));
+
+					SetSerializedReference(floorVent, "blast", blast.gameObject);
+
+					ventIndex++;
+				}
+			}
+
+			// Barriers either side of halfway, taking turns to rise
+			var barrierIndex = 0;
+
+			foreach (var x in new[] { -9f, 9f })
+			{
+				var barrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
+				barrier.name = $"Rising Barrier {barrierIndex + 1}";
+				barrier.transform.SetParent(hazards, false);
+				barrier.transform.position = new Vector3(x, 1f, 0f);
+				barrier.transform.localScale = new Vector3(2f, 2f, 2f);
+				barrier.GetComponent<Renderer>().sharedMaterial = hazardMaterial;
+
+				barrier.AddComponent<Rigidbody>().isKinematic = true;
+
+				var rising = barrier.AddComponent<RisingBarrier>();
+				SetHazard(rising, period: 18f, warning: 1.5f, active: 8f, offset: barrierIndex * 9f, barrier.GetComponent<Renderer>(),
+					new Color(0.45f, 0.45f, 0.5f), new Color(1f, 0.85f, 0.2f), new Color(0.55f, 0.55f, 0.6f));
+
+				barrierIndex++;
+			}
+		}
+
+		private static void SetHazard(Hazard hazard, float period, float warning, float active, float offset, Renderer renderer, Color off, Color warn, Color live)
+		{
+			var serialized = new SerializedObject(hazard);
+			serialized.FindProperty("period").floatValue = period;
+			serialized.FindProperty("warning").floatValue = warning;
+			serialized.FindProperty("active").floatValue = active;
+			serialized.FindProperty("offset").floatValue = offset;
+			serialized.FindProperty("offColour").colorValue = off;
+			serialized.FindProperty("warningColour").colorValue = warn;
+			serialized.FindProperty("activeColour").colorValue = live;
+			serialized.ApplyModifiedPropertiesWithoutUndo();
+
+			SetSerializedArray(hazard, "renderers", new Object[] { renderer });
+		}
+
+		private static Material CreateTransparentMaterial(string name, Color colour)
+		{
+			var material = CreateMaterial(name, colour, unlit: true);
+
+			material.SetFloat("_Surface", 1f);
+			material.SetFloat("_Blend", 0f);
+			material.SetOverrideTag("RenderType", "Transparent");
+			material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+			material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+			material.SetInt("_ZWrite", 0);
+			material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+			material.renderQueue = (int)RenderQueue.Transparent;
+
+			EditorUtility.SetDirty(material);
+
+			return material;
 		}
 
 		private static void CreateBlock(string name, Transform parent, Vector3 position, Vector3 scale, Material material, int layer, bool collider = true)
