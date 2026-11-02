@@ -37,6 +37,13 @@ namespace Cameras
 		private void Awake()
 		{
 			localPlayers = ServiceLocator.Get<LocalPlayerRegistry>();
+
+			ServiceLocator.Register<IInputView>(this);
+		}
+
+		private void OnDestroy()
+		{
+			ServiceLocator.Unregister<IInputView>(this);
 		}
 
 		private void LateUpdate()

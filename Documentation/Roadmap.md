@@ -15,6 +15,8 @@
 
 ## Development
 
+* [x] Main menu and lobby: host or join, teams, player types, match length
+
 * [ ] Online multiplayer with mixed couch and online players
 * [x] Stamina and specials (one shared special, Slam, until player types)
 * [x] Player types, each with its own special

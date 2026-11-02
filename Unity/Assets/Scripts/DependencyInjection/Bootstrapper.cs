@@ -1,4 +1,5 @@
 using UnityEngine;
+using Match;
 using Players;
 using SystemManagement;
 
@@ -14,12 +15,19 @@ namespace DependencyInjection
 
 			InitialisePlayers();
 
+			InitialiseMatchSettings();
+
 			Debug.Log("Bootstrapper: Services registered.");
 		}
 
 		private static void InitialiseSystemManager()
 		{
 			ServiceLocator.Register<SystemManager>(new SystemManager());
+		}
+
+		private static void InitialiseMatchSettings()
+		{
+			ServiceLocator.Register<MatchSettings>(new MatchSettings());
 		}
 
 		// Local players are created as devices join, see LocalPlayerManager

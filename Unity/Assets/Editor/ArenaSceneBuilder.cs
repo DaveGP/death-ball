@@ -34,7 +34,7 @@ namespace Builders
 	/// </summary>
 	public static class ArenaSceneBuilder
 	{
-		private const string ScenePath = "Assets/Scenes/Arena.unity";
+		public const string ScenePath = "Assets/Scenes/Arena.unity";
 
 		private const string CharacterPrefabsFolder = "Assets/Prefabs/Characters";
 
@@ -468,7 +468,6 @@ namespace Builders
 			ballSpawn.position = Vector3.up;
 
 			var match = new GameObject("Match").AddComponent<MatchController>();
-			SetSerializedReference(match, "networkManager", networkManager);
 			SetSerializedArray(match, "teams", new Object[] { home, away });
 			SetSerializedReference(match, "ballPrefab", ballPrefab.GetComponent<NetworkObject>());
 			SetSerializedReference(match, "ballSpawn", ballSpawn);
@@ -477,10 +476,10 @@ namespace Builders
 			var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
 			cameraObject.AddComponent<Camera>();
 			cameraObject.AddComponent<AudioListener>();
-			var arenaCamera = cameraObject.AddComponent<ArenaCamera>();
+			cameraObject.AddComponent<ArenaCamera>();
 
-			var players = new GameObject("Local Players").AddComponent<LocalPlayerManager>();
-			SetSerializedReference(players, "inputView", arenaCamera);
+			// Lets the arena be played directly; when loaded from the menu, the menu's copy is kept instead
+			new GameObject("Local Players").AddComponent<LocalPlayerManager>();
 
 			new GameObject("Systems").AddComponent<SystemsRunner>();
 
@@ -699,7 +698,10 @@ namespace Builders
 
 			scenes.RemoveAll(s => s.path == ScenePath || !System.IO.File.Exists(s.path));
 
-			scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
+			// After the main menu if there is one, which comes first
+			var menuIndex = scenes.FindIndex(s => s.path == MainMenuSceneBuilder.ScenePath);
+
+			scenes.Insert(menuIndex + 1, new EditorBuildSettingsScene(ScenePath, true));
 
 			EditorBuildSettings.scenes = scenes.ToArray();
 		}
@@ -730,7 +732,7 @@ namespace Builders
 			Debug.LogError($"ArenaSceneBuilder: No free layer for {layerName}");
 		}
 
-		private static void EnsureFolder(string path)
+		internal static void EnsureFolder(string path)
 		{
 			if (AssetDatabase.IsValidFolder(path))
 				return;
@@ -740,21 +742,21 @@ namespace Builders
 			AssetDatabase.CreateFolder(path[..slash], path[(slash + 1)..]);
 		}
 
-		private static void SetSerializedReference(Object target, string property, Object value)
+		internal static void SetSerializedReference(Object target, string property, Object value)
 		{
 			var serializedObject = new SerializedObject(target);
 			serializedObject.FindProperty(property).objectReferenceValue = value;
 			serializedObject.ApplyModifiedPropertiesWithoutUndo();
 		}
 
-		private static void SetSerializedBool(Object target, string property, bool value)
+		internal static void SetSerializedBool(Object target, string property, bool value)
 		{
 			var serializedObject = new SerializedObject(target);
 			serializedObject.FindProperty(property).boolValue = value;
 			serializedObject.ApplyModifiedPropertiesWithoutUndo();
 		}
 
-		private static void SetSerializedArray(Object target, string property, Object[] values)
+		internal static void SetSerializedArray(Object target, string property, Object[] values)
 		{
 			var serializedObject = new SerializedObject(target);
 			var array = serializedObject.FindProperty(property);

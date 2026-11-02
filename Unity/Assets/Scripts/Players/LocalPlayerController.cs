@@ -17,7 +17,12 @@ namespace Players
 	{
 		public int Index { get; }
 
-		public TeamSide Team { get; }
+		public string Name { get; }
+
+		// Chosen in the lobby
+		public TeamSide Team { get; set; }
+
+		public PlayerType PreferredType { get; set; }
 
 		public IReadOnlyList<InputDevice> Devices { get; }
 
@@ -29,12 +34,14 @@ namespace Players
 
 		public LocalPlayerController(
 			int index,
+			string name,
 			TeamSide team,
 			IReadOnlyList<InputDevice> devices,
 			UnityInputReader inputReader,
 			InputProvider inputProvider)
 		{
 			Index = index;
+			Name = name;
 			Team = team;
 			Devices = devices;
 			this.inputReader = inputReader;

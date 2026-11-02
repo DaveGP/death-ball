@@ -89,7 +89,7 @@ AI runs only on the server. Because it goes through the same motor code as human
 * **Couch players online** - several local players on one client each get their own owned body. A client can own more than one character.
 * **Offline** - single-player and couch play run as host with no remote clients, so there is only one code path.
 * Bodies use `NetworkTransform` with client authority, as in Crewfall, and `NetworkObject` is set to not despawn when its owner disconnects; the body goes back to AI instead.
-* `NetworkStarter` starts as host on play. Launch a build with `-client [-address <ip>]` to join one. A menu and lobby replace this later.
+* The main menu hosts or joins and runs the lobby; see [Main Menu and Lobby](MainMenu.md). Playing the arena scene directly starts it as host through `NetworkStarter` (launch a build of it with `-client [-address <ip>]` to join one).
 * Later: client-side prediction (FishNet's prediction) for responsive movement and hits, and server authority for anti-cheat.
 
 ## Match Systems

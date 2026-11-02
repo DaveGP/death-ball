@@ -2,6 +2,7 @@ using UnityEngine;
 using Character.Input.Interfaces;
 using Data.Enums;
 using Data.Input;
+using DependencyInjection;
 using SystemManagement.Interfaces;
 
 
@@ -15,8 +16,6 @@ namespace Character.Input
 	{
 		private readonly IInputReader inputReader;
 
-		private readonly IInputView inputView;
-
 		private Vector2 movement;
 
 		private Vector2 aim;
@@ -24,11 +23,9 @@ namespace Character.Input
 		private CharacterAction actions;
 
 
-		public InputProvider(IInputReader inputReader, IInputView inputView)
+		public InputProvider(IInputReader inputReader)
 		{
 			this.inputReader = inputReader;
-
-			this.inputView = inputView;
 
 			if (inputReader == null)
 				Debug.LogError("InputProvider is null!");
@@ -66,7 +63,8 @@ namespace Character.Input
 
 		private Vector2 ToWorld(Vector2 input)
 		{
-			if (inputView == null)
+			// Whichever camera the current scene registered; raw input in menus
+			if (!ServiceLocator.TryGet(out IInputView inputView))
 				return input;
 
 			var world = inputView.ViewRotation * new Vector3(input.x, 0f, input.y);

@@ -127,12 +127,17 @@ namespace Match
 			aiControllers.Clear();
 		}
 
-		public bool TryAssignHuman(NetworkConnection connection, int localIndex)
+		/// <summary>
+		/// Gives a human a body no other human has, of their preferred type if that one is free.
+		/// </summary>
+		public bool TryAssignHuman(NetworkConnection connection, int localIndex, PlayerType preferredType)
 		{
 			if (bodies.Any(b => b.Owner == connection && b.LocalPlayerIndex == localIndex))
 				return true;
 
-			var body = bodies.FirstOrDefault(b => !b.IsHumanControlled && !b.IsKnockedOut);
+			var free = bodies.Where(b => !b.IsHumanControlled && !b.IsKnockedOut).ToList();
+
+			var body = free.FirstOrDefault(b => b.Type == preferredType) ?? free.FirstOrDefault();
 
 			if (body == null)
 				return false;

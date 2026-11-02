@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Linq;
 using Data.Enums;
+using DependencyInjection;
+using FishNet;
 using FishNet.Connection;
 using FishNet.Managing;
 using FishNet.Object;
@@ -16,12 +18,12 @@ namespace Match
 	/// hands bodies to the humans that join, and runs the match: the clock, goals, and the
 	/// three ways it ends. Most points at full time wins; a draw goes to sudden death, where
 	/// the next goal wins; and knocking out the whole other team wins at any point.
+	///
+	/// Works the same whether the arena is played directly, starting the server itself, or
+	/// loaded from the lobby with the server already running.
 	/// </summary>
 	public class MatchController : MonoBehaviour
 	{
-		[SerializeField]
-		private NetworkManager networkManager;
-
 		[SerializeField]
 		private TeamController[] teams;
 
@@ -34,6 +36,7 @@ namespace Match
 		[SerializeField]
 		private NetworkObject matchStatePrefab;
 
+		// Used when the arena is played directly; the lobby's match settings take over otherwise
 		[SerializeField]
 		private float matchLength = 300f;
 
@@ -48,6 +51,8 @@ namespace Match
 		[SerializeField]
 		private float resultDuration = 8f;
 
+		private NetworkManager networkManager;
+
 		private Ball ball;
 
 		private MatchState matchState;
@@ -60,35 +65,61 @@ namespace Match
 
 		private bool IsInPlay => matchState != null && matchState.Phase != MatchPhase.Ended;
 
-		private void OnEnable()
+		// Start rather than OnEnable: when the arena is loaded from the menu its own
+		// NetworkManager is discarded in Awake in favour of the menu's
+		private void Start()
 		{
+			networkManager = InstanceFinder.NetworkManager;
+
 			networkManager.ServerManager.OnServerConnectionState += OnServerConnectionState;
 			networkManager.ServerManager.OnRemoteConnectionState += OnRemoteConnectionState;
+			networkManager.ServerManager.OnAuthenticationResult += OnAuthenticationResult;
 			networkManager.ServerManager.RegisterBroadcast<JoinTeamBroadcast>(OnJoinTeam);
+
+			if (networkManager.IsServerStarted)
+				SetUpMatch();
 		}
 
-		private void OnDisable()
+		private void OnDestroy()
 		{
 			if (networkManager == null)
 				return;
 
 			networkManager.ServerManager.OnServerConnectionState -= OnServerConnectionState;
 			networkManager.ServerManager.OnRemoteConnectionState -= OnRemoteConnectionState;
+			networkManager.ServerManager.OnAuthenticationResult -= OnAuthenticationResult;
 			networkManager.ServerManager.UnregisterBroadcast<JoinTeamBroadcast>(OnJoinTeam);
+		}
+
+		private void SetUpMatch()
+		{
+			foreach (var team in teams)
+				team.SpawnBodies(networkManager);
+
+			matchState = Spawn(matchStatePrefab, Vector3.zero).GetComponent<MatchState>();
+
+			ball = Spawn(ballPrefab, ballSpawn.position).GetComponent<Ball>();
+
+			if (ServiceLocator.TryGet(out MatchSettings settings) && networkManager.GetComponent<Lobby.GameSession>() != null)
+				matchLength = settings.MatchLengthSeconds;
+
+			StartMatch();
+
+			// Everyone already connected sends their players now; anyone later, once authenticated
+			networkManager.ServerManager.Broadcast(new RequestPlayersBroadcast());
+		}
+
+		private void OnAuthenticationResult(NetworkConnection connection, bool passed)
+		{
+			if (passed && matchState != null)
+				networkManager.ServerManager.Broadcast(connection, new RequestPlayersBroadcast());
 		}
 
 		private void OnServerConnectionState(ServerConnectionStateArgs args)
 		{
 			if (args.ConnectionState == LocalConnectionState.Started)
 			{
-				foreach (var team in teams)
-					team.SpawnBodies(networkManager);
-
-				matchState = Spawn(matchStatePrefab, Vector3.zero).GetComponent<MatchState>();
-
-				ball = Spawn(ballPrefab, ballSpawn.position).GetComponent<Ball>();
-
-				StartMatch();
+				SetUpMatch();
 			}
 			else if (args.ConnectionState == LocalConnectionState.Stopped)
 			{
@@ -285,7 +316,7 @@ namespace Match
 		{
 			var team = teams.FirstOrDefault(t => t.Side == message.Team);
 
-			if (team == null || !team.TryAssignHuman(connection, message.LocalIndex))
+			if (team == null || !team.TryAssignHuman(connection, message.LocalIndex, message.PreferredType))
 				Debug.LogWarning($"No free body on {message.Team} for client {connection.ClientId} player {message.LocalIndex + 1}");
 		}
 	}
