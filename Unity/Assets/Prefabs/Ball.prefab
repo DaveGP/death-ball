@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 7664066942637388201}
   - component: {fileID: 6722590835599951340}
   - component: {fileID: 5552647417562639641}
+  - component: {fileID: 6597332624219630347}
   m_Layer: 10
   m_Name: Ball
   m_TagString: Untagged
@@ -277,3 +278,19 @@ MonoBehaviour:
   deflectionBounce: 0.3
   kickoffLaunchSpeed: 6
   resetHeight: -5
+--- !u!114 &6597332624219630347
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5213024168992437884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c71fd7f855ec523429999fc4e14a1928, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Observing.NetworkObserver
+  _overrideType: 3
+  _updateHostVisibility: 1
+  _observerConditions:
+  - {fileID: 11400000, guid: 2033f54fd2794464bae08fa5a55c8996, type: 2}

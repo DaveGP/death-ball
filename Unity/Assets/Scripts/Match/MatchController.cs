@@ -5,6 +5,7 @@ using DependencyInjection;
 using FishNet;
 using FishNet.Connection;
 using FishNet.Managing;
+using FishNet.Managing.Scened;
 using FishNet.Object;
 using FishNet.Transporting;
 using Networking;
@@ -53,6 +54,9 @@ namespace Match
 
 		private NetworkManager networkManager;
 
+		// Loaded by the lobby's GameSession through FishNet, rather than played directly
+		private bool loadedFromLobby;
+
 		private Ball ball;
 
 		private MatchState matchState;
@@ -75,6 +79,9 @@ namespace Match
 			networkManager.ServerManager.OnRemoteConnectionState += OnRemoteConnectionState;
 			networkManager.ServerManager.OnAuthenticationResult += OnAuthenticationResult;
 			networkManager.ServerManager.RegisterBroadcast<JoinTeamBroadcast>(OnJoinTeam);
+			networkManager.SceneManager.OnClientPresenceChangeEnd += OnClientPresenceChangeEnd;
+
+			loadedFromLobby = networkManager.GetComponent<Lobby.GameSession>() != null;
 
 			if (networkManager.IsServerStarted)
 				SetUpMatch();
@@ -89,6 +96,7 @@ namespace Match
 			networkManager.ServerManager.OnRemoteConnectionState -= OnRemoteConnectionState;
 			networkManager.ServerManager.OnAuthenticationResult -= OnAuthenticationResult;
 			networkManager.ServerManager.UnregisterBroadcast<JoinTeamBroadcast>(OnJoinTeam);
+			networkManager.SceneManager.OnClientPresenceChangeEnd -= OnClientPresenceChangeEnd;
 		}
 
 		private void SetUpMatch()
@@ -100,18 +108,49 @@ namespace Match
 
 			ball = Spawn(ballPrefab, ballSpawn.position).GetComponent<Ball>();
 
-			if (ServiceLocator.TryGet(out MatchSettings settings) && networkManager.GetComponent<Lobby.GameSession>() != null)
+			if (ServiceLocator.TryGet(out MatchSettings settings) && loadedFromLobby)
 				matchLength = settings.MatchLengthSeconds;
 
 			StartMatch();
 
-			// Everyone already connected sends their players now; anyone later, once authenticated
-			networkManager.ServerManager.Broadcast(new RequestPlayersBroadcast());
+			RequestPlayersFromEveryone();
 		}
 
+		// A client's players are only asked for once it has loaded the arena. A human's body is
+		// moved by its owner, so one handed over while the owner was still loading fell through
+		// a floor that wasn't there yet.
+		private void RequestPlayersFromEveryone()
+		{
+			if (!loadedFromLobby)
+			{
+				networkManager.ServerManager.Broadcast(new RequestPlayersBroadcast());
+				return;
+			}
+
+			if (!networkManager.SceneManager.SceneConnections.TryGetValue(gameObject.scene, out var connections))
+				return;
+
+			foreach (var connection in connections)
+				networkManager.ServerManager.Broadcast(connection, new RequestPlayersBroadcast());
+		}
+
+		private void OnClientPresenceChangeEnd(ClientPresenceChangeEventArgs args)
+		{
+			if (loadedFromLobby && args.Added && args.Scene == gameObject.scene && matchState != null)
+				networkManager.ServerManager.Broadcast(args.Connection, new RequestPlayersBroadcast());
+		}
+
+		// Played directly, the arena was loaded by Unity rather than FishNet, so FishNet doesn't know who
+		// is in it. Match objects are only sent to clients in the arena scene, so add each one and ask
+		// for its players once it connects.
 		private void OnAuthenticationResult(NetworkConnection connection, bool passed)
 		{
-			if (passed && matchState != null)
+			if (!passed || loadedFromLobby)
+				return;
+
+			networkManager.SceneManager.AddConnectionToScene(connection, gameObject.scene);
+
+			if (matchState != null)
 				networkManager.ServerManager.Broadcast(connection, new RequestPlayersBroadcast());
 		}
 
@@ -138,7 +177,8 @@ namespace Match
 		{
 			var instance = networkManager.GetPooledInstantiated(prefab, position, Quaternion.identity, true);
 
-			networkManager.ServerManager.Spawn(instance);
+			// Into the arena itself, so only clients in the arena are sent it
+			networkManager.ServerManager.Spawn(instance, scene: gameObject.scene);
 
 			return instance;
 		}

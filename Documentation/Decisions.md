@@ -53,3 +53,11 @@ In the first AI matches the Runners were knocked out first every time: as the fa
 ## Team Tactics AI
 
 02/11/2026 - AI roles are planned per team rather than each player working out for itself who is nearest. A team brain assigns roles a few times a second with a bias towards keeping roles where they are, and each player brain carries its role out. Compared over AI matches: before, everyone near the ball piled in, the fastest player was swarmed at every kickoff and matches ran to 16 goals; with roles, one player per team chases, defenders mark specific opponents and the keeper holds, and matches were close and lower scoring (10 goals, then 3-2). Runners were first preferred as hunters but kept getting knocked out early, so hunting now prefers Bruisers and Enforcers.
+
+## Online Testing Fixes
+
+02/11/2026 - First online test with two editors (Multiplayer Play Mode). Three problems, all about when a client is given things relative to loading the arena:
+
+* Remote players were given their body before they had loaded the arena, and since owners move their own bodies, it fell through the missing floor. The server now asks a client for its players once FishNet says it is in the arena.
+* Clients joining mid-match were sent the match objects while still swapping scenes, and FishNet destroyed them. Match objects now use FishNet's scene condition and are spawned into the arena scene, so they are only sent to clients in it.
+* After a client went back to the menu, FishNet kept using holding scenes that the menu load had unloaded. `ReloadSafeSceneProcessor` makes new ones. Chosen over patching FishNet, which stays as shipped.

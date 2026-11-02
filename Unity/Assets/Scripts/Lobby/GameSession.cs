@@ -3,6 +3,7 @@ using FishNet.Managing;
 using FishNet.Managing.Scened;
 using FishNet.Object;
 using FishNet.Transporting;
+using Networking;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnitySceneManager = UnityEngine.SceneManagement.SceneManager;
@@ -37,8 +38,12 @@ namespace Lobby
 			networkManager = GetComponent<NetworkManager>();
 		}
 
+		// Start rather than Awake so the NetworkManager has made its SceneManager
 		private void Start()
 		{
+			// Coming back to the menu unloads FishNet's holding scenes; this processor makes new ones
+			networkManager.SceneManager.SetSceneProcessor(gameObject.AddComponent<ReloadSafeSceneProcessor>());
+
 			networkManager.ServerManager.OnServerConnectionState += OnServerConnectionState;
 
 			networkManager.ClientManager.OnClientConnectionState += OnClientConnectionState;

@@ -14,6 +14,7 @@ using FishNet.Component.Transforming;
 using FishNet.Managing;
 using FishNet.Managing.Object;
 using FishNet.Object;
+using FishNet.Observing;
 using Hud;
 using Match;
 using Networking;
@@ -65,6 +66,8 @@ namespace Builders
 		private const string MaterialsFolder = "Assets/Materials";
 
 		private const string DefaultPrefabObjectsPath = "Assets/DefaultPrefabObjects.asset";
+
+		private const string SceneConditionPath = "Assets/FishNet/Runtime/Observing/Conditions/ScriptableObjects/SceneCondition.asset";
 
 		private const float ArenaWidth = 30f;
 
@@ -160,6 +163,8 @@ namespace Builders
 
 			var networkObject = root.AddComponent<NetworkObject>();
 			SetSerializedBool(networkObject, "_preventDespawnOnDisconnect", true);
+
+			AddArenaObserver(root);
 
 			root.AddComponent<NetworkTransform>();
 
@@ -378,6 +383,8 @@ namespace Builders
 			root.AddComponent<NetworkTransform>();
 			root.AddComponent<Ball>();
 
+			AddArenaObserver(root);
+
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, BallPrefabPath);
 
 			Object.DestroyImmediate(root);
@@ -392,11 +399,22 @@ namespace Builders
 			root.AddComponent<NetworkObject>();
 			root.AddComponent<MatchState>();
 
+			AddArenaObserver(root);
+
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, MatchStatePrefabPath);
 
 			Object.DestroyImmediate(root);
 
 			return prefab;
+		}
+
+		// Match objects only go to clients that have loaded the arena. Otherwise a client joining
+		// mid-match was sent them while still swapping scenes, and FishNet lost them.
+		internal static void AddArenaObserver(GameObject root)
+		{
+			var observer = root.AddComponent<NetworkObserver>();
+
+			SetSerializedArray(observer, "_observerConditions", new Object[] { AssetDatabase.LoadAssetAtPath<ObserverCondition>(SceneConditionPath) });
 		}
 
 		private static PhysicsMaterial CreateBallPhysicsMaterial()

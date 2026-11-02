@@ -69,7 +69,8 @@ namespace Match
 					spawnPoint.rotation,
 					true);
 
-				networkManager.ServerManager.Spawn(instance);
+				// Into the arena itself, so only clients in the arena are sent it
+				networkManager.ServerManager.Spawn(instance, scene: gameObject.scene);
 
 				var body = instance.GetComponent<CharacterNetworkController>();
 
