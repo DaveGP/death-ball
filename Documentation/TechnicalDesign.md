@@ -83,7 +83,8 @@ AI runs only on the server. Because it goes through the same motor code as human
 
 ## Match Systems
 
-* `MatchController` (server) - clock, score, knockout tracking, win conditions, sudden death, resets after goals.
+* `MatchController` (server) - spawns the teams, ball and `MatchState`, scores goals and resets for the kickoff after each one. Clock, knockout tracking, win conditions and sudden death still to come.
+* `MatchState` (server-owned, spawned) - the score as SyncVars, and a `GoalScored` event raised on every client for the HUD.
 * `Ball` (server-owned) - see below. Overcharge heat still to come.
 
 ## The Ball
@@ -95,4 +96,11 @@ AI runs only on the server. Because it goes through the same motor code as human
 * **Stripping** - any attack or tackle that lands on an opponent carrier knocks the ball back towards the hitter and staggers the carrier for a second. A new carrier can't be stripped for a second, and a stripped or throwing player can't grab the ball straight back. Without these two rules, two players just traded the ball on the spot.
 * **Stagger** is a tick-based SyncVar on the body, so the owning client and the server agree on it; a staggered body's input is replaced with nothing.
 * Only the server acts on the ball. Actions also run on the owning client (`RunLocally`), but there they just draw debug rays.
-* `Goal` - ring trigger that reports scores to `MatchController`.
+* `Goal` - a raised ring facing the field. `IsThrough(from, to)` checks the ball's path between ticks, so fast shots can't skip past it.
+
+## Scoring
+
+* Each physics tick the `MatchController` checks the ball's movement against the goal the thrower's team attacks. Only a thrown ball scores (not one knocked loose), and only in the right goal, so there are no own goals.
+* 1 point, 2 if thrown from behind the halfway line, +1 if the thrower caught a teammate's pass before it touched the ground. The ball keeps track of the last throw and whether the catch came off an air pass.
+* After a goal the ball is out of play for a few seconds, then everyone is teleported back to their spawn points and the ball kicks off again. A human's body is teleported on its owner's machine (`TargetRpc`), since the owner has authority over its transform, and `NetworkTransform.Teleport` makes everyone else snap instead of sliding.
+* **Shot assist** - a shot aimed within 30° of the goal is lofted to arrive at ring height. The aim still decides left and right, so shots can miss, and the AI adds a few degrees of random spread.

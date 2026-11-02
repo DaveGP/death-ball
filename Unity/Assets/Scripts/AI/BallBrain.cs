@@ -34,6 +34,9 @@ namespace AI
 
 		private const float SwerveWeight = 1.5f;
 
+		// Degrees either side of the goal, so the AI misses sometimes
+		private const float ShotSpread = 6f;
+
 		private readonly CharacterNetworkController self;
 
 		private readonly TeamController team;
@@ -87,7 +90,7 @@ namespace AI
 			var direction = toGoal.normalized;
 
 			if (toGoal.magnitude <= ShootRange)
-				return new CharacterInput(direction, direction, CharacterAction.Shoot);
+				return new CharacterInput(direction, Rotate(direction, Random.Range(-ShotSpread, ShotSpread)), CharacterAction.Shoot);
 
 			var threat = team.Opponents.NearestBodyTo(Position);
 
@@ -190,5 +193,15 @@ namespace AI
 
 		private static Vector2 Flat(Vector3 vector)
 			=> new(vector.x, vector.z);
+
+		private static Vector2 Rotate(Vector2 vector, float degrees)
+		{
+			var radians = degrees * Mathf.Deg2Rad;
+
+			var cos = Mathf.Cos(radians);
+			var sin = Mathf.Sin(radians);
+
+			return new Vector2(vector.x * cos - vector.y * sin, vector.x * sin + vector.y * cos);
+		}
 	}
 }

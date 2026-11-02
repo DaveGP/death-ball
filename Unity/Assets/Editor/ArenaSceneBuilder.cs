@@ -10,6 +10,7 @@ using FishNet.Component.Transforming;
 using FishNet.Managing;
 using FishNet.Managing.Object;
 using FishNet.Object;
+using Hud;
 using Match;
 using Networking;
 using Players;
@@ -18,6 +19,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 
 namespace Builders
@@ -36,10 +38,19 @@ namespace Builders
 
 		private const string BallPhysicsMaterialPath = "Assets/Materials/BallPhysics.asset";
 
-		// Where the goal rings will go, inset from each end wall
+		private const string MatchStatePrefabPath = "Assets/Prefabs/MatchState.prefab";
+
+		// Goal rings stand inset from each end wall, facing the field
 		private const float GoalInset = 3f;
 
 		private const float GoalHeight = 2f;
+
+		// The rim sits just outside the scoring radius, so the ball can clip it and bounce out
+		private const float GoalScoringRadius = 1f;
+
+		private const float GoalRimRadius = 1.15f;
+
+		private const int GoalRimSegments = 16;
 
 		private const string StatsPath = "Assets/ScriptableObjects/DefaultCharacterStats.asset";
 
@@ -66,10 +77,12 @@ namespace Builders
 
 			var ballPrefab = CreateBallPrefab();
 
+			var matchStatePrefab = CreateMatchStatePrefab();
+
 			// Rebuilt prefabs lose their FishNet asset path hash until the collection is refreshed
 			EditorApplication.ExecuteMenuItem("Tools/Fish-Networking/Utility/Refresh Default Prefabs");
 
-			CreateScene(prefab, ballPrefab);
+			CreateScene(prefab, ballPrefab, matchStatePrefab);
 
 			AssetDatabase.SaveAssets();
 
@@ -153,7 +166,7 @@ namespace Builders
 
 			var rigidbody = root.AddComponent<Rigidbody>();
 			rigidbody.mass = 4f;
-			rigidbody.linearDamping = 0.1f;
+			rigidbody.linearDamping = 0.02f;
 			rigidbody.angularDamping = 0.5f;
 			rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
 			rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -163,6 +176,20 @@ namespace Builders
 			root.AddComponent<Ball>();
 
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, BallPrefabPath);
+
+			Object.DestroyImmediate(root);
+
+			return prefab;
+		}
+
+		private static GameObject CreateMatchStatePrefab()
+		{
+			var root = new GameObject("MatchState");
+
+			root.AddComponent<NetworkObject>();
+			root.AddComponent<MatchState>();
+
+			var prefab = PrefabUtility.SaveAsPrefabAsset(root, MatchStatePrefabPath);
 
 			Object.DestroyImmediate(root);
 
@@ -208,7 +235,7 @@ namespace Builders
 			return renderer;
 		}
 
-		private static void CreateScene(GameObject characterPrefab, GameObject ballPrefab)
+		private static void CreateScene(GameObject characterPrefab, GameObject ballPrefab, GameObject matchStatePrefab)
 		{
 			EnsureFolder("Assets/Scenes");
 
@@ -231,8 +258,8 @@ namespace Builders
 			SetSerializedReference(away, "opponents", home);
 
 			// Each team shoots at the goal at the other team's end
-			SetSerializedReference(home, "attackTarget", CreateGoalTarget(TeamSide.Away, 1f));
-			SetSerializedReference(away, "attackTarget", CreateGoalTarget(TeamSide.Home, -1f));
+			SetSerializedReference(home, "attackGoal", CreateGoal(TeamSide.Away, 1f));
+			SetSerializedReference(away, "attackGoal", CreateGoal(TeamSide.Home, -1f));
 
 			var ballSpawn = new GameObject("Ball Spawn").transform;
 			ballSpawn.position = Vector3.up;
@@ -242,6 +269,7 @@ namespace Builders
 			SetSerializedArray(match, "teams", new Object[] { home, away });
 			SetSerializedReference(match, "ballPrefab", ballPrefab.GetComponent<NetworkObject>());
 			SetSerializedReference(match, "ballSpawn", ballSpawn);
+			SetSerializedReference(match, "matchStatePrefab", matchStatePrefab.GetComponent<NetworkObject>());
 
 			var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
 			cameraObject.AddComponent<Camera>();
@@ -252,6 +280,8 @@ namespace Builders
 			SetSerializedReference(players, "inputView", arenaCamera);
 
 			new GameObject("Systems").AddComponent<SystemsRunner>();
+
+			CreateHud();
 
 			EditorSceneManager.SaveScene(scene, ScenePath);
 
@@ -307,20 +337,99 @@ namespace Builders
 				Object.DestroyImmediate(block.GetComponent<Collider>());
 		}
 
-		// A marker for where the goal ring will be, with a post so players can see it
-		private static Transform CreateGoalTarget(TeamSide owner, float end)
+		// A ring on a post, facing the field. The rim is solid so near misses bounce off it.
+		private static Goal CreateGoal(TeamSide owner, float end)
 		{
-			var target = new GameObject($"Goal {owner}").transform;
+			var goalObject = new GameObject($"Goal {owner}");
 
-			target.position = new Vector3(0f, GoalHeight, end * (ArenaLength / 2f - GoalInset));
+			var goalTransform = goalObject.transform;
+
+			goalTransform.SetPositionAndRotation(
+				new Vector3(0f, GoalHeight, end * (ArenaLength / 2f - GoalInset)),
+				Quaternion.LookRotation(Vector3.forward * -end));
+
+			var goal = goalObject.AddComponent<Goal>();
+
+			var serializedGoal = new SerializedObject(goal);
+			serializedGoal.FindProperty("owner").enumValueIndex = (int)owner;
+			serializedGoal.FindProperty("radius").floatValue = GoalScoringRadius;
+			serializedGoal.ApplyModifiedPropertiesWithoutUndo();
 
 			var colour = owner == TeamSide.Home ? new Color(0.8f, 0.15f, 0.1f) : new Color(0.1f, 0.3f, 0.85f);
 
-			var post = CreateVisual(PrimitiveType.Cylinder, "Post", target, Vector3.down * (GoalHeight / 2f), new Vector3(0.3f, GoalHeight / 2f, 0.3f), CreateMaterial($"Goal {owner}", colour));
+			var material = CreateMaterial($"Goal {owner}", colour);
+
+			const float rimThickness = 0.2f;
+
+			var segmentLength = 2f * Mathf.PI * GoalRimRadius / GoalRimSegments + 0.05f;
+
+			for (var i = 0; i < GoalRimSegments; i++)
+			{
+				var angle = 360f * i / GoalRimSegments;
+
+				var segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+
+				segment.name = $"Rim {i + 1}";
+				segment.isStatic = true;
+				segment.transform.SetParent(goalTransform, false);
+				segment.transform.localPosition = Quaternion.Euler(0f, 0f, angle) * Vector3.right * GoalRimRadius;
+				segment.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
+				segment.transform.localScale = new Vector3(rimThickness, segmentLength, rimThickness);
+				segment.GetComponent<Renderer>().sharedMaterial = material;
+			}
+
+			var rimBottom = GoalRimRadius + rimThickness / 2f;
+
+			var postHeight = GoalHeight - rimBottom;
+
+			var post = CreateVisual(PrimitiveType.Cylinder, "Post", goalTransform, Vector3.down * (rimBottom + postHeight / 2f), new Vector3(0.25f, postHeight / 2f, 0.25f), material);
 
 			post.gameObject.isStatic = true;
 
-			return target;
+			return goal;
+		}
+
+		private static void CreateHud()
+		{
+			var canvasObject = new GameObject("HUD");
+
+			var canvas = canvasObject.AddComponent<Canvas>();
+			canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+			var scaler = canvasObject.AddComponent<CanvasScaler>();
+			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+			scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+			var scoreText = CreateText("Score", canvasObject.transform, 48, new Vector2(0.5f, 1f), new Vector2(0f, -50f));
+			var goalText = CreateText("Goal Banner", canvasObject.transform, 72, new Vector2(0.5f, 0.5f), new Vector2(0f, 120f));
+
+			var hud = canvasObject.AddComponent<ScoreHud>();
+			SetSerializedReference(hud, "scoreText", scoreText);
+			SetSerializedReference(hud, "goalText", goalText);
+		}
+
+		private static Text CreateText(string name, Transform parent, int fontSize, Vector2 anchor, Vector2 position)
+		{
+			var textObject = new GameObject(name);
+
+			var rectTransform = textObject.AddComponent<RectTransform>();
+			rectTransform.SetParent(parent, false);
+			rectTransform.anchorMin = anchor;
+			rectTransform.anchorMax = anchor;
+			rectTransform.anchoredPosition = position;
+			rectTransform.sizeDelta = new Vector2(1200f, fontSize * 2.5f);
+
+			var text = textObject.AddComponent<Text>();
+			text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+			text.fontSize = fontSize;
+			text.fontStyle = FontStyle.Bold;
+			text.alignment = TextAnchor.MiddleCenter;
+			text.color = Color.white;
+			text.raycastTarget = false;
+
+			textObject.AddComponent<Outline>().effectDistance = new Vector2(2f, -2f);
+
+			return text;
 		}
 
 		// Side is -1 for the home end of the arena and 1 for the away end

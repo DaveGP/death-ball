@@ -5,6 +5,7 @@ using Character.Movement.Interfaces;
 using Data.Enums;
 using Data.Input;
 using DependencyInjection;
+using FishNet.Component.Transforming;
 using FishNet.Connection;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
@@ -143,6 +144,39 @@ namespace Character.Networking
 		public void Stagger(float seconds)
 		{
 			staggerEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+		}
+
+		/// <summary>
+		/// Moves the body instantly. A human's body is moved on their own machine,
+		/// because the owner has authority over its transform.
+		/// </summary>
+		[Server]
+		public void Teleport(Vector3 position, Quaternion rotation)
+		{
+			if (!Owner.IsValid || Owner.IsLocalClient)
+				ApplyTeleport(position, rotation);
+			else
+				OwnerTeleport(Owner, position, rotation);
+		}
+
+		[TargetRpc]
+		private void OwnerTeleport(NetworkConnection connection, Vector3 position, Quaternion rotation)
+		{
+			ApplyTeleport(position, rotation);
+		}
+
+		private void ApplyTeleport(Vector3 position, Quaternion rotation)
+		{
+			var rigidbody = GetComponent<Rigidbody>();
+
+			rigidbody.linearVelocity = Vector3.zero;
+			rigidbody.position = position;
+			rigidbody.rotation = rotation;
+
+			transform.SetPositionAndRotation(position, rotation);
+
+			// Everyone else snaps rather than watching the body slide across the arena
+			GetComponent<NetworkTransform>().Teleport();
 		}
 
 		/// <summary>

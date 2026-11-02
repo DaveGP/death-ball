@@ -33,7 +33,7 @@ namespace Match
 
 		// The goal this team shoots at
 		[SerializeField]
-		private Transform attackTarget;
+		private Goal attackGoal;
 
 		private readonly List<CharacterNetworkController> bodies = new();
 
@@ -43,7 +43,9 @@ namespace Match
 
 		public TeamController Opponents => opponents;
 
-		public Transform AttackTarget => attackTarget;
+		public Goal AttackGoal => attackGoal;
+
+		public Transform AttackTarget => attackGoal.transform;
 
 		public IReadOnlyList<CharacterNetworkController> Bodies => bodies;
 
@@ -71,6 +73,15 @@ namespace Match
 
 				HandToAI(body);
 			}
+		}
+
+		/// <summary>
+		/// Puts every body back on its spawn point, for the kickoff after a goal.
+		/// </summary>
+		public void ResetPositions()
+		{
+			for (var i = 0; i < bodies.Count && i < spawnPoints.Length; i++)
+				bodies[i].Teleport(spawnPoints[i].position, spawnPoints[i].rotation);
 		}
 
 		public void Clear()

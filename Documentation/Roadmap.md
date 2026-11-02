@@ -6,7 +6,7 @@
 * [x] Character controller ported from Crewfall, with per-character input sources
 * [x] Local couch multiplayer (one reader per device)
 * [x] Ball: pick up, carry, pass, shoot, loose-ball physics
-* [ ] Goal rings and scoring
+* [x] Goal rings and scoring
 * [ ] Basic melee, health and knockouts
 * [ ] Both win conditions (points at time, full knockout)
 * [x] Teammate switching

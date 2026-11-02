@@ -48,6 +48,10 @@ namespace Character.Actions
 		[SerializeField]
 		private float shootLift = 3f;
 
+		// Shots aimed within this angle of the goal arc to ring height
+		[SerializeField]
+		private float shotAssistAngle = 30f;
+
 		private CharacterNetworkController body;
 
 		public bool IsBlocking { get; private set; }
@@ -114,7 +118,27 @@ namespace Character.Actions
 
 			DrawAction(direction, 20f, Color.green);
 
-			ball.Throw(body, direction * shootSpeed + Vector3.up * shootLift);
+			ball.Throw(body, ShotVelocity(ball, direction));
+		}
+
+		// Aiming roughly at the goal lofts the shot to arrive at ring height. The aim
+		// still decides left and right, so shots can miss.
+		private Vector3 ShotVelocity(Ball ball, Vector3 direction)
+		{
+			var velocity = direction * shootSpeed + Vector3.up * shootLift;
+
+			var toGoal = body.TeamController.AttackTarget.position - ball.HoldPosition(body);
+
+			var flat = new Vector3(toGoal.x, 0f, toGoal.z);
+
+			if (Vector3.Angle(direction, flat) > shotAssistAngle)
+				return velocity;
+
+			var time = flat.magnitude / shootSpeed;
+
+			velocity.y = (toGoal.y - 0.5f * Physics.gravity.y * time * time) / time;
+
+			return velocity;
 		}
 
 		public void OnSpecial()

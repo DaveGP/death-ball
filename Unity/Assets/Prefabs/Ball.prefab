@@ -125,7 +125,7 @@ Rigidbody:
   m_GameObject: {fileID: 5213024168992437884}
   serializedVersion: 5
   m_Mass: 4
-  m_LinearDamping: 0.1
+  m_LinearDamping: 0.02
   m_AngularDamping: 0.5
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
@@ -264,6 +264,9 @@ MonoBehaviour:
   pickupRadius: 1
   pickupMaxHeight: 2.5
   throwerPickupDelay: 0.4
+  fumbleRecoveryDelay: 1
+  knockSpeed: 3
+  stripImmunity: 1
   carryOffset: {x: 0, y: 1.1, z: 0.6}
   kickoffLaunchSpeed: 6
   resetHeight: -5

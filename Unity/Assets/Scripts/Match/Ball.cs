@@ -11,6 +11,8 @@ namespace Match
 	/// The one steel ball. Owned by the server, which decides who carries it, simulates it
 	/// when loose and lets anyone close enough pick it up or catch it. Clients only see the
 	/// result, through the carrier SyncVar and the NetworkTransform.
+	///
+	/// Also remembers the last throw, so the MatchController can tell who scored and how.
 	/// </summary>
 	[RequireComponent(typeof(Rigidbody))]
 	public class Ball : NetworkBehaviour
@@ -56,17 +58,38 @@ namespace Match
 
 		private int characterMask;
 
+		private int groundLayer;
+
 		private Vector3 kickoffPosition;
 
-		private CharacterNetworkController lastThrower;
+		// Out of play between a goal and the next kickoff
+		private bool isLive;
 
-		private float throwerPickupTime;
+		private CharacterNetworkController blockedBody;
+
+		private float blockedUntil;
 
 		private float carrierSince;
+
+		// Whether the current carrier caught a teammate's pass before it touched the ground
+		private bool carrierCaughtPass;
+
+		private bool touchedGroundSinceThrow;
 
 		public CharacterNetworkController Carrier => carrier.Value;
 
 		public bool IsLoose => carrier.Value == null;
+
+		// The physics position, which the transform trails when interpolating
+		public Vector3 Position => rigidbody.position;
+
+		// Server only. Who threw the ball now in flight, or null if it wasn't thrown
+		public CharacterNetworkController Thrower { get; private set; }
+
+		public Vector3 ThrowOrigin { get; private set; }
+
+		// The throw came from a player who caught a pass in the air
+		public bool ThrowAssisted { get; private set; }
 
 		private void Awake()
 		{
@@ -74,6 +97,7 @@ namespace Match
 			ballCollider = GetComponent<Collider>();
 
 			characterMask = LayerMask.GetMask("Character");
+			groundLayer = LayerMask.NameToLayer("Ground");
 
 			// Players catch the ball by reaching it rather than being hit by it
 			Physics.IgnoreLayerCollision(gameObject.layer, LayerMask.NameToLayer("Character"));
@@ -116,10 +140,23 @@ namespace Match
 		{
 			SetLoose();
 
-			lastThrower = null;
+			blockedBody = null;
+
+			isLive = true;
 
 			rigidbody.position = kickoffPosition;
 			rigidbody.linearVelocity = Vector3.up * kickoffLaunchSpeed;
+		}
+
+		/// <summary>
+		/// Takes the ball out of play until the next kickoff. It keeps bouncing but nobody can pick it up.
+		/// </summary>
+		[Server]
+		public void EndPlay()
+		{
+			SetLoose();
+
+			isLive = false;
 		}
 
 		[Server]
@@ -128,11 +165,19 @@ namespace Match
 			if (carrier.Value != thrower)
 				return;
 
+			var assisted = carrierCaughtPass;
+
 			SetLoose();
 
 			BlockPickup(thrower, throwerPickupDelay);
 
-			rigidbody.position = CarryPosition(thrower);
+			Thrower = thrower;
+			ThrowOrigin = thrower.transform.position;
+			ThrowAssisted = assisted;
+
+			touchedGroundSinceThrow = false;
+
+			rigidbody.position = HoldPosition(thrower);
 			rigidbody.linearVelocity = velocity;
 		}
 
@@ -159,6 +204,12 @@ namespace Match
 			return true;
 		}
 
+		/// <summary>
+		/// Where a body holds the ball, and where throws leave from.
+		/// </summary>
+		public Vector3 HoldPosition(CharacterNetworkController body)
+			=> body.transform.TransformPoint(carryOffset);
+
 		private void FixedUpdate()
 		{
 			if (!IsServerInitialized)
@@ -166,7 +217,7 @@ namespace Match
 
 			if (carrier.Value != null)
 			{
-				rigidbody.MovePosition(CarryPosition(carrier.Value));
+				rigidbody.MovePosition(HoldPosition(carrier.Value));
 				return;
 			}
 
@@ -176,7 +227,14 @@ namespace Match
 				return;
 			}
 
-			TryPickup();
+			if (isLive)
+				TryPickup();
+		}
+
+		private void OnCollisionEnter(Collision collision)
+		{
+			if (collision.gameObject.layer == groundLayer)
+				touchedGroundSinceThrow = true;
 		}
 
 		private void TryPickup()
@@ -216,10 +274,15 @@ namespace Match
 		}
 
 		private bool CanPickUp(CharacterNetworkController body)
-			=> body != lastThrower || Time.time >= throwerPickupTime;
+			=> body != blockedBody || Time.time >= blockedUntil;
 
 		private void SetCarrier(CharacterNetworkController body)
 		{
+			carrierCaughtPass = Thrower != null
+			                    && Thrower != body
+			                    && Thrower.Team == body.Team
+			                    && !touchedGroundSinceThrow;
+
 			rigidbody.linearVelocity = Vector3.zero;
 			rigidbody.angularVelocity = Vector3.zero;
 			rigidbody.isKinematic = true;
@@ -231,9 +294,12 @@ namespace Match
 			carrier.Value = body;
 		}
 
+		// Clears the last throw too, so only a ball that was thrown can score
 		private void SetLoose()
 		{
 			carrier.Value = null;
+
+			Thrower = null;
 
 			rigidbody.isKinematic = false;
 
@@ -242,12 +308,9 @@ namespace Match
 
 		private void BlockPickup(CharacterNetworkController body, float delay)
 		{
-			lastThrower = body;
+			blockedBody = body;
 
-			throwerPickupTime = Time.time + delay;
+			blockedUntil = Time.time + delay;
 		}
-
-		private Vector3 CarryPosition(CharacterNetworkController body)
-			=> body.transform.TransformPoint(carryOffset);
 	}
 }

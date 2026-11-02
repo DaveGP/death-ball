@@ -21,3 +21,7 @@ This document is to track decisions and the reasoning behind them throughout the
 ## Ball Possession
 
 02/11/2026 - Catching is the same as picking up: the nearest player within reach of a loose ball below head height gets it, and the ball passes through players rather than bouncing off them. This makes interceptions automatic and keeps the server logic to one rule. Stripping the carrier staggers them, and new carriers get a second of strip immunity; in playtests without these, the carrier and the nearest defender swapped the ball every second and play never left the halfway line.
+
+## Shot Assist
+
+02/11/2026 - Shots have no up/down aim, so a shot aimed near the goal is lofted to arrive at ring height while the stick still controls direction. Without it, shots from beyond about 15 m hit the floor before the ring, and the 2-point long-range goal from your own half would be close to impossible.
