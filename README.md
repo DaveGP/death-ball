@@ -105,4 +105,4 @@ Created by David Pearson.
 
 ## License
 
-This project is currently private and all rights reserved.
+The source is public to read and play, but all rights are reserved: it is not open source. FishNet, under `Unity/Assets/FishNet`, keeps its own licence.
