@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Cameras;
 using Character.Actions;
 using Character.Health;
+using Character.Specials;
+using Character.Stamina;
 using Character.Movement;
 using Character.Networking;
 using Character.Visuals;
@@ -54,6 +56,8 @@ namespace Builders
 		private const int GoalRimSegments = 16;
 
 		private const string StatsPath = "Assets/ScriptableObjects/DefaultCharacterStats.asset";
+
+		private const string SlamPath = "Assets/ScriptableObjects/Specials/Slam.asset";
 
 		private const string MaterialsFolder = "Assets/Materials";
 
@@ -141,6 +145,13 @@ namespace Builders
 			var health = root.AddComponent<CharacterHealth>();
 			SetSerializedReference(health, "stats", stats);
 
+			var stamina = root.AddComponent<CharacterStamina>();
+			SetSerializedReference(stamina, "stats", stats);
+
+			var special = root.AddComponent<CharacterSpecial>();
+			SetSerializedReference(special, "stats", stats);
+			SetSerializedReference(special, "move", CreateSlamSpecial());
+
 			var material = CreateMaterial("Character", Color.grey);
 
 			var bodyVisual = CreateVisual(PrimitiveType.Capsule, "Body", root.transform, Vector3.up, new Vector3(0.8f, 1f, 0.8f), material);
@@ -151,7 +162,7 @@ namespace Builders
 			var teamColour = root.AddComponent<TeamColour>();
 			SetSerializedArray(teamColour, "renderers", new Object[] { bodyVisual, noseVisual });
 
-			CreateHealthBar(root.transform);
+			CreateStatusBars(root.transform);
 
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
 
@@ -160,23 +171,68 @@ namespace Builders
 			return prefab;
 		}
 
-		private static void CreateHealthBar(Transform parent)
+		// Health on top, with thinner stamina and special bars under it
+		private static void CreateStatusBars(Transform parent)
 		{
 			const float width = 1f;
-			const float height = 0.12f;
+			const float border = 0.03f;
 
-			var bar = new GameObject("Health Bar").transform;
-			bar.SetParent(parent, false);
-			bar.localPosition = Vector3.up * 2.4f;
+			var bars = new GameObject("Status Bars").transform;
+			bars.SetParent(parent, false);
+			bars.localPosition = Vector3.up * 2.4f;
 
-			CreateVisual(PrimitiveType.Quad, "Background", bar, Vector3.zero, new Vector3(width + 0.06f, height + 0.06f, 1f), CreateMaterial("Health Bar Background", new Color(0.05f, 0.05f, 0.05f), unlit: true));
+			var background = CreateMaterial("Health Bar Background", new Color(0.05f, 0.05f, 0.05f), unlit: true);
+			var fillMaterial = CreateMaterial("Health Bar Fill", Color.white, unlit: true);
 
-			// Just in front of the background, towards the camera
-			var fill = CreateVisual(PrimitiveType.Quad, "Fill", bar, new Vector3(0f, 0f, -0.01f), new Vector3(width, height, 1f), CreateMaterial("Health Bar Fill", Color.white, unlit: true));
+			var rows = new (string Name, string Property, float Height)[]
+			{
+				("Health", "health", 0.12f),
+				("Stamina", "stamina", 0.05f),
+				("Special", "special", 0.05f),
+			};
 
-			var healthBar = bar.gameObject.AddComponent<HealthBar>();
-			SetSerializedReference(healthBar, "fill", fill.transform);
-			SetSerializedReference(healthBar, "fillRenderer", fill);
+			var totalHeight = border;
+
+			foreach (var row in rows)
+				totalHeight += row.Height + border;
+
+			CreateVisual(PrimitiveType.Quad, "Background", bars, Vector3.down * (totalHeight / 2f - 0.06f - border), new Vector3(width + border * 2f, totalHeight, 1f), background);
+
+			var statusBars = bars.gameObject.AddComponent<StatusBars>();
+
+			var serializedBars = new SerializedObject(statusBars);
+
+			var top = 0.06f;
+
+			foreach (var row in rows)
+			{
+				// Just in front of the background, towards the camera
+				var fill = CreateVisual(PrimitiveType.Quad, row.Name, bars, new Vector3(0f, top - row.Height / 2f, -0.01f), new Vector3(width, row.Height, 1f), fillMaterial);
+
+				serializedBars.FindProperty($"{row.Property}.Fill").objectReferenceValue = fill.transform;
+				serializedBars.FindProperty($"{row.Property}.Renderer").objectReferenceValue = fill;
+
+				top -= row.Height + border;
+			}
+
+			serializedBars.ApplyModifiedPropertiesWithoutUndo();
+		}
+
+		private static SpecialMove CreateSlamSpecial()
+		{
+			EnsureFolder("Assets/ScriptableObjects/Specials");
+
+			var slam = AssetDatabase.LoadAssetAtPath<SlamSpecial>(SlamPath);
+
+			if (slam != null)
+				return slam;
+
+			slam = ScriptableObject.CreateInstance<SlamSpecial>();
+			slam.DisplayName = "Slam";
+
+			AssetDatabase.CreateAsset(slam, SlamPath);
+
+			return slam;
 		}
 
 		private static GameObject CreateBallPrefab()

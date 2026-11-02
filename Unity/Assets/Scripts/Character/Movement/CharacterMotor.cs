@@ -1,4 +1,6 @@
 using Character.Actions.Interfaces;
+using Character.Stamina;
+using Data.ScriptableObjects;
 using Data.Enums;
 using Data.Input;
 using UnityEngine;
@@ -19,17 +21,28 @@ namespace Character.Movement
 
 		private IActionController actionController;
 
+		private CharacterStamina stamina;
+
+		private CharacterStats stats;
+
 		private void Awake()
 		{
 			movementController = GetComponent<IMovementController>();
 
 			actionController = GetComponent<IActionController>();
 
+			stamina = GetComponent<CharacterStamina>();
+
+			stats = GetComponent<MovementController>().Stats;
+
 			if (movementController == null)
 				Debug.LogError($"{nameof(movementController)} is null");
 
 			if (actionController == null)
 				Debug.LogError($"{nameof(actionController)} is null");
+
+			if (stamina == null)
+				Debug.LogError($"{nameof(stamina)} is null");
 		}
 
 		public void ProcessInput(CharacterInput characterInput)
@@ -50,10 +63,14 @@ namespace Character.Movement
 			movementController.Move(Vector2.ClampMagnitude(characterInput.Move, 1f));
 		}
 
+		// Only the server spends stamina; the owner just checks what the server says is left
 		private void HandleDodge(CharacterInput characterInput)
 		{
-			if (characterInput.Action.HasFlag(CharacterAction.Dodge))
-				movementController.Dodge(characterInput.Move);
+			if (!characterInput.Action.HasFlag(CharacterAction.Dodge) || !stamina.Has(stats.DodgeStaminaCost))
+				return;
+
+			if (movementController.Dodge(characterInput.Move) && stamina.IsServerInitialized)
+				stamina.Drain(stats.DodgeStaminaCost);
 		}
 
 		private void HandleGait(CharacterInput characterInput)
@@ -61,6 +78,9 @@ namespace Character.Movement
 			var gait = CalculateGait(characterInput);
 
 			movementController.SetGait(gait);
+
+			if (gait == CharacterGait.Sprint && stamina.IsServerInitialized)
+				stamina.Drain(stats.SprintStaminaPerSecond * Time.fixedDeltaTime);
 		}
 
 		private CharacterGait CalculateGait(CharacterInput characterInput)
@@ -70,7 +90,7 @@ namespace Character.Movement
 			if (input == 0)
 				return CharacterGait.Idle;
 
-			if (characterInput.Action.HasFlag(CharacterAction.Sprint))
+			if (characterInput.Action.HasFlag(CharacterAction.Sprint) && !stamina.IsEmpty)
 				return CharacterGait.Sprint;
 
 			return input < RunThreshold

@@ -18,8 +18,9 @@ namespace Character.Movement.Interfaces
 
 		/// <summary>
 		/// Attempts to make the character dodge in a world-space direction on the XZ plane.
+		/// Returns whether it did.
 		/// </summary>
-		public void Dodge(Vector2 direction);
+		public bool Dodge(Vector2 direction);
 
 		/// <summary>
 		/// Sets the Character's Gait.

@@ -30,5 +30,30 @@ namespace Data.ScriptableObjects
 
 		// Extra damage against someone already staggered
 		public float StaggeredDamageMultiplier = 1.5f;
+
+		public float MaxStamina = 100f;
+
+		public float StaminaRegen = 25f;
+
+		// Seconds after spending before stamina starts coming back
+		public float StaminaRegenDelay = 0.8f;
+
+		public float SprintStaminaPerSecond = 15f;
+
+		public float DodgeStaminaCost = 25f;
+
+		public float HeavyAttackStaminaCost = 20f;
+
+		public float TackleStaminaCost = 15f;
+
+		// Stamina a blocked hit drains, per point of the hit's damage. Running out breaks the guard.
+		public float BlockStaminaPerDamage = 1f;
+
+		public float SpecialMeterMax = 100f;
+
+		// Special meter gained per point of damage dealt and taken
+		public float SpecialChargePerDamageDealt = 0.5f;
+
+		public float SpecialChargePerDamageTaken = 0.4f;
 	}
 }

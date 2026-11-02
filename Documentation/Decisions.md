@@ -37,3 +37,9 @@ This document is to track decisions and the reasoning behind them throughout the
 * Numbers: health 200, blocked damage 10%, tackle 3, ball hit 10.
 
 A five-minute AI match now loses about half of all health, usually has one or two knockouts, and goes to full time. Humans fight less constantly than the AI, so real matches should knock out even fewer players.
+
+## Stamina and Specials
+
+02/11/2026 - Stamina is server authoritative like health; the owning client reads the synced value to gate sprinting and dodging, which can lag the server by one round trip online. Specials are ScriptableObject assets so player types can each get their own; until then everyone has Slam.
+
+Retuned pacing afterwards with AI matches and hit logs. With blocked hits draining 2 stamina per damage, slams at 20 damage and meters charging fully from damage dealt, slams did a third of all damage and a knockout win came at about 3.5 minutes. Halving block drain and special charging and dropping slam to 12 damage brought specials down to a few per match and matches back to full time, with knockouts landing late.

@@ -20,6 +20,8 @@ namespace Character.Movement
 
 		public CharacterGait Gait { get; private set; }
 
+		public CharacterStats Stats => stats;
+
 		[SerializeField] private CharacterStats stats;
 
 		[SerializeField] private float groundCheckDistance = 0.1f;
@@ -116,10 +118,10 @@ namespace Character.Movement
 			rigidbody.MoveRotation(rotation);
 		}
 
-		public void Dodge(Vector2 direction)
+		public bool Dodge(Vector2 direction)
 		{
 			if (!IsGrounded || Time.time < nextDodgeTime)
-				return;
+				return false;
 
 			var dodgeDirection = direction.sqrMagnitude > 0.0001f
 				? new Vector3(direction.x, 0f, direction.y).normalized
@@ -130,6 +132,8 @@ namespace Character.Movement
 			dodgeEndTime = Time.time + stats.DodgeDuration;
 
 			nextDodgeTime = Time.time + stats.DodgeCooldown;
+
+			return true;
 		}
 
 		private void UpdateGrounded()

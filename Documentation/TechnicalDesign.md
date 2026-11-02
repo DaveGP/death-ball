@@ -124,7 +124,7 @@ AI runs only on the server. Because it goes through the same motor code as human
 
 * `CharacterHealth` (NetworkBehaviour on each body) holds health as a SyncVar (200 by default, in `CharacterStats`) and owns the rules for taking a `Hit`:
   * A body that is dodging, or already down, isn't hit at all.
-  * Blocking lets through 10% of the damage and no stagger, unless the hit breaks blocks.
+  * Blocking lets through 10% of the damage and no stagger, unless the hit breaks blocks. Each blocked hit drains stamina (1 per point of the hit's damage); with no stamina there is no guard, and the hit that empties it staggers anyway (a guard break).
   * Hitting a staggered body does ×1.5 damage.
   * At zero health the body is knocked out; otherwise it is staggered for the hit's stagger time (a lighter hit never cuts a longer stagger short).
 * Melee moves are `Attack`s on the `ActionController` (hit, range, cooldown), all tunable in the inspector:
@@ -138,5 +138,17 @@ AI runs only on the server. Because it goes through the same motor code as human
 * A move hits the nearest opponent within range and 60° of facing. Only the server deals damage; the owning client runs the cooldown and the tackle lunge so it moves straight away.
 * A hit that lands (not blocked) on the carrier also strips the ball, as before.
 * **Ball hits** - a thrown ball moving faster than 16 m/s can't be caught by opponents: it hits them for 10 damage and 0.6 s stagger, bounces back off them, and can no longer score. Someone the ball just hit can't be hit by it again for 1.5 s, so a shooter can't pin them with rebounds. Passes are slower, so they can still be intercepted; shots are fast, so they hurt anyone in the way.
-* Grey-box health bars float over each body, facing the camera.
+* Grey-box status bars float over each body, facing the camera: health, then stamina, then the special meter (which flashes when ready).
 * No knockback yet, since a human's body position is owned by their client; it needs a message to the owner like the post-goal teleport.
+
+## Stamina
+
+* `CharacterStamina` (NetworkBehaviour) holds stamina as a SyncVar (100). Only the server spends it; every machine reads the synced value, so the owning client stops sprinting or dodging once the server says it has run out. It regenerates at 25/s after 0.8 s without spending.
+* Costs: sprinting 15/s (falls back to running when empty), dodge 25, heavy attack 20, tackle 15, blocked hits 1 per point of damage. Light attacks are free.
+
+## Specials
+
+* `CharacterSpecial` (NetworkBehaviour) holds the special meter as a SyncVar. The server charges it by 0.5 per point of damage dealt and 0.4 per point taken; a special's own damage doesn't charge it, so specials can't chain.
+* Pressing Special with a full meter performs the body's `SpecialMove`, a ScriptableObject asset, so player types can each have their own. The move runs on the server and its effect plays on every machine through an `ObserversRpc`.
+* For now everyone has **Slam**: every opponent within 3.5 m takes 12 damage and a 1 s stagger through their guard, and a carrier hit by it drops the ball. Grey-box effect: an expanding orange disc.
+* The AI fires its special when it's ready and the opposing carrier, or at least two opponents, are within 3 m.

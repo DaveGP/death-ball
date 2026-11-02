@@ -24,3 +24,14 @@ MonoBehaviour:
   MaxHealth: 200
   BlockedDamageMultiplier: 0.1
   StaggeredDamageMultiplier: 1.5
+  MaxStamina: 100
+  StaminaRegen: 25
+  StaminaRegenDelay: 0.8
+  SprintStaminaPerSecond: 15
+  DodgeStaminaCost: 25
+  HeavyAttackStaminaCost: 20
+  TackleStaminaCost: 15
+  BlockStaminaPerDamage: 1
+  SpecialMeterMax: 100
+  SpecialChargePerDamageDealt: 0.5
+  SpecialChargePerDamageTaken: 0.4

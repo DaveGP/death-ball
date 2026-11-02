@@ -2,6 +2,8 @@ using Character.Actions.Interfaces;
 using Character.Movement;
 using Character.Movement.Interfaces;
 using Character.Networking;
+using Character.Specials;
+using Character.Stamina;
 using Data.Combat;
 using Data.ScriptableObjects;
 using FishNet.Object;
@@ -28,6 +30,10 @@ namespace Character.Health
 
 		private ICharacterMovementState movementState;
 
+		private CharacterStamina stamina;
+
+		private CharacterSpecial special;
+
 		public int CurrentHealth => currentHealth.Value;
 
 		public int MaxHealth => stats.MaxHealth;
@@ -42,6 +48,10 @@ namespace Character.Health
 
 			// The movement itself rather than the network controller's synced copy
 			movementState = GetComponent<MovementController>();
+
+			stamina = GetComponent<CharacterStamina>();
+
+			special = GetComponent<CharacterSpecial>();
 
 			if (stats == null)
 				Debug.LogError($"{nameof(stats)} is null", this);
@@ -61,10 +71,12 @@ namespace Character.Health
 		}
 
 		/// <summary>
-		/// Applies a hit, unless the body dodged it or is already down.
+		/// Applies a hit, unless the body dodged it or is already down. The attacker, if there
+		/// is one, charges their special meter from the damage dealt, as the target does from
+		/// the damage taken.
 		/// </summary>
 		[Server]
-		public HitResult TakeHit(Hit hit)
+		public HitResult TakeHit(Hit hit, CharacterNetworkController attacker = null)
 		{
 			if (body.IsKnockedOut || movementState.IsDodging)
 				return HitResult.Missed;
@@ -73,19 +85,31 @@ namespace Character.Health
 
 			var stagger = hit.Stagger;
 
-			var blocked = actionController.IsBlocking && !hit.BreaksBlock;
+			// Blocking costs stamina, and there's no guard left once it runs out
+			var blocked = actionController.IsBlocking && !hit.BreaksBlock && !stamina.IsEmpty;
 
 			if (blocked)
 			{
 				damage *= stats.BlockedDamageMultiplier;
-				stagger = 0f;
+
+				stamina.Drain(hit.Damage * stats.BlockStaminaPerDamage);
+
+				// The hit that empties it breaks the guard and staggers them anyway
+				stagger = stamina.IsEmpty ? hit.Stagger : 0f;
 			}
 
 			// Kicking someone while they're down
 			if (body.IsStaggered)
 				damage *= stats.StaggeredDamageMultiplier;
 
-			currentHealth.Value = Mathf.Max(0, currentHealth.Value - Mathf.RoundToInt(damage));
+			var dealt = Mathf.Min(currentHealth.Value, Mathf.RoundToInt(damage));
+
+			currentHealth.Value -= dealt;
+
+			special.Charge(dealt * stats.SpecialChargePerDamageTaken);
+
+			if (attacker != null)
+				attacker.GetComponent<CharacterSpecial>().Charge(dealt * stats.SpecialChargePerDamageDealt);
 
 			if (currentHealth.Value == 0)
 				body.KnockOut();

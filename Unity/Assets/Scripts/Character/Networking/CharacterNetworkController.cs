@@ -1,4 +1,6 @@
 using Character.Health;
+using Character.Specials;
+using Character.Stamina;
 using Character.Input;
 using Character.Input.Interfaces;
 using Character.Movement;
@@ -183,6 +185,10 @@ namespace Character.Networking
 			staggerEndTick.Value = 0;
 
 			GetComponent<CharacterHealth>().Restore();
+
+			GetComponent<CharacterStamina>().Restore();
+
+			GetComponent<CharacterSpecial>().Empty();
 		}
 
 		/// <summary>

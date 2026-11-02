@@ -1,4 +1,5 @@
 using Character.Networking;
+using Character.Specials;
 using Data.Enums;
 using Data.Input;
 using DependencyInjection;
@@ -36,6 +37,11 @@ namespace AI
 
 		private const float MarkCooldownMax = 4f;
 
+		// Within this range of the user the special is worth firing
+		private const float SpecialRange = 3f;
+
+		private const int SpecialCrowd = 2;
+
 		// How far out from our ring the keeper stands
 		private const float KeeperDistance = 3f;
 
@@ -64,6 +70,8 @@ namespace AI
 
 		private readonly float laneX;
 
+		private readonly CharacterSpecial special;
+
 		private float nextActionTime;
 
 		private bool inStrikeRange;
@@ -73,6 +81,8 @@ namespace AI
 			this.self = self;
 			this.team = team;
 			this.laneX = laneX;
+
+			special = self.GetComponent<CharacterSpecial>();
 		}
 
 		private Vector3 Position => self.transform.position;
@@ -86,6 +96,9 @@ namespace AI
 				return Mark();
 
 			var carrier = ball.Carrier;
+
+			if (ShouldUseSpecial(carrier))
+				return new CharacterInput(Vector2.zero, Vector2.zero, CharacterAction.Special);
 
 			if (carrier == self)
 				return AttackGoal();
@@ -107,6 +120,26 @@ namespace AI
 		}
 
 		private Transform OwnGoal => team.Opponents.AttackTarget;
+
+		// Saves it for a crowd, or for the opposing carrier
+		private bool ShouldUseSpecial(CharacterNetworkController carrier)
+		{
+			if (!special.IsReady)
+				return false;
+
+			if (carrier != null && carrier.Team != self.Team && Flat(carrier.transform.position - Position).magnitude <= SpecialRange)
+				return true;
+
+			var nearby = 0;
+
+			foreach (var opponent in team.Opponents.Bodies)
+			{
+				if (!opponent.IsKnockedOut && Flat(opponent.transform.position - Position).magnitude <= SpecialRange)
+					nearby++;
+			}
+
+			return nearby >= SpecialCrowd;
+		}
 
 		private bool IsNearestAI(Vector3 position)
 			=> team.NearestBodyTo(position, aiOnly: true) == self.transform;

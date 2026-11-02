@@ -1,7 +1,11 @@
 using Character.Health;
+using Character.Movement;
 using Character.Movement.Interfaces;
 using Character.Networking;
+using Character.Specials;
+using Character.Stamina;
 using Data.Combat;
+using Data.ScriptableObjects;
 using DependencyInjection;
 using Match;
 using UnityEngine;
@@ -64,6 +68,12 @@ namespace Character.Actions
 
 		private IMovementController movementController;
 
+		private CharacterStamina stamina;
+
+		private CharacterSpecial special;
+
+		private CharacterStats stats;
+
 		private readonly Collider[] overlaps = new Collider[16];
 
 		private int characterMask;
@@ -84,6 +94,12 @@ namespace Character.Actions
 
 			movementController = GetComponent<IMovementController>();
 
+			stamina = GetComponent<CharacterStamina>();
+
+			special = GetComponent<CharacterSpecial>();
+
+			stats = GetComponent<MovementController>().Stats;
+
 			characterMask = LayerMask.GetMask("Character");
 
 			if (body == null)
@@ -101,7 +117,7 @@ namespace Character.Actions
 		// The carrier's hands are full, they can only pass, shoot or barge
 		public void OnAttack()
 		{
-			if (IsCarrying || !TryUse(lightAttack, ref nextLightAttackTime))
+			if (IsCarrying || !TryUse(lightAttack, ref nextLightAttackTime, 0f))
 				return;
 
 			DrawAction(transform.forward, lightAttack.Range, Color.red);
@@ -111,7 +127,7 @@ namespace Character.Actions
 
 		public void OnHeavyAttack()
 		{
-			if (IsCarrying || !TryUse(heavyAttack, ref nextHeavyAttackTime))
+			if (IsCarrying || !TryUse(heavyAttack, ref nextHeavyAttackTime, stats.HeavyAttackStaminaCost))
 				return;
 
 			DrawAction(transform.forward, heavyAttack.Range, Color.magenta);
@@ -121,7 +137,7 @@ namespace Character.Actions
 
 		public void OnTackle()
 		{
-			if (!TryUse(tackle, ref nextTackleTime))
+			if (!TryUse(tackle, ref nextTackleTime, stats.TackleStaminaCost))
 				return;
 
 			DrawAction(transform.forward, tackle.Range, Color.yellow);
@@ -132,12 +148,16 @@ namespace Character.Actions
 			Strike(tackle);
 		}
 
-		private static bool TryUse(Attack attack, ref float nextTime)
+		// Both the owner and the server check the cooldown and stamina; only the server spends it
+		private bool TryUse(Attack attack, ref float nextTime, float staminaCost)
 		{
-			if (Time.time < nextTime)
+			if (Time.time < nextTime || !stamina.Has(staminaCost))
 				return false;
 
 			nextTime = Time.time + attack.Cooldown;
+
+			if (body.IsServerInitialized && staminaCost > 0f)
+				stamina.Drain(staminaCost);
 
 			return true;
 		}
@@ -185,7 +205,10 @@ namespace Character.Actions
 		}
 
 		public void OnSpecial()
-			=> DrawAction(transform.forward, lightAttack.Range, Color.white);
+		{
+			if (body.IsServerInitialized)
+				special.TryUse();
+		}
 
 		private bool CanThrow(out Ball ball)
 		{
@@ -208,7 +231,7 @@ namespace Character.Actions
 			if (target == null)
 				return;
 
-			var result = target.GetComponent<CharacterHealth>().TakeHit(attack.Hit);
+			var result = target.GetComponent<CharacterHealth>().TakeHit(attack.Hit, body);
 
 			if (result != HitResult.Landed || !TryGetBall(out var ball) || ball.Carrier != target)
 				return;

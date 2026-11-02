@@ -16,7 +16,7 @@
 ## Development
 
 * [ ] Online multiplayer with mixed couch and online players
-* [ ] Stamina and specials (blocking and dodge invulnerability are in)
+* [x] Stamina and specials (one shared special, Slam, until player types)
 * [ ] Player types
 * [ ] Ball overcharge
 * [ ] Team tactics AI

@@ -336,7 +336,7 @@ namespace Match
 		// A shot that hits someone hurts them and bounces off, and can no longer score
 		private bool TryHit(CharacterNetworkController body)
 		{
-			if (body.GetComponent<CharacterHealth>().TakeHit(ballHit) == HitResult.Missed)
+			if (body.GetComponent<CharacterHealth>().TakeHit(ballHit, Thrower) == HitResult.Missed)
 				return false;
 
 			Thrower = null;
