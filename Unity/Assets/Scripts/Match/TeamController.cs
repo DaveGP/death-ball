@@ -49,6 +49,8 @@ namespace Match
 
 		public IReadOnlyList<CharacterNetworkController> Bodies => bodies;
 
+		public bool IsAllKnockedOut => bodies.Count > 0 && bodies.All(b => b.IsKnockedOut);
+
 		public void SpawnBodies(NetworkManager networkManager)
 		{
 			foreach (var spawnPoint in spawnPoints)
@@ -84,6 +86,26 @@ namespace Match
 				bodies[i].Teleport(spawnPoints[i].position, spawnPoints[i].rotation);
 		}
 
+		/// <summary>
+		/// Gets everyone up and back on their spawn points for a new match.
+		/// </summary>
+		public void ResetForMatch()
+		{
+			foreach (var body in bodies)
+				body.Revive();
+
+			ResetPositions();
+		}
+
+		public void OnKnockedOut(CharacterNetworkController body)
+		{
+			if (ServiceLocator.TryGet(out Ball ball) && ball.Carrier == body)
+				ball.Drop();
+
+			if (body.IsHumanControlled)
+				SwitchFrom(body);
+		}
+
 		public void Clear()
 		{
 			bodies.Clear();
@@ -95,7 +117,7 @@ namespace Match
 			if (bodies.Any(b => b.Owner == connection && b.LocalPlayerIndex == localIndex))
 				return true;
 
-			var body = bodies.FirstOrDefault(b => !b.IsHumanControlled);
+			var body = bodies.FirstOrDefault(b => !b.IsHumanControlled && !b.IsKnockedOut);
 
 			if (body == null)
 				return false;
@@ -146,7 +168,7 @@ namespace Match
 
 			foreach (var body in bodies)
 			{
-				if (body == null || (aiOnly && body.IsHumanControlled))
+				if (body == null || body.IsKnockedOut || (aiOnly && body.IsHumanControlled))
 					continue;
 
 				var distance = (body.transform.position - position).sqrMagnitude;

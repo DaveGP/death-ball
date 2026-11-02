@@ -7,8 +7,8 @@
 * [x] Local couch multiplayer (one reader per device)
 * [x] Ball: pick up, carry, pass, shoot, loose-ball physics
 * [x] Goal rings and scoring
-* [ ] Basic melee, health and knockouts
-* [ ] Both win conditions (points at time, full knockout)
+* [ ] Basic melee, health and knockouts (knocked-out state and KO win are in; nothing deals damage yet)
+* [x] Both win conditions (points at time, full knockout), plus sudden death
 * [x] Teammate switching
 * [x] Simple AI filling every unused slot
 * [x] One grey-box arena

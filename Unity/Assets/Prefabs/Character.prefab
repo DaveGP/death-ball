@@ -367,6 +367,7 @@ MonoBehaviour:
   homeColour: {r: 0.8, g: 0.15, b: 0.1, a: 1}
   awayColour: {r: 0.1, g: 0.3, b: 0.85, a: 1}
   humanBrightness: 1.6
+  knockedOutColour: {r: 0.15, g: 0.15, b: 0.15, a: 1}
 --- !u!1 &8805443546058085483
 GameObject:
   m_ObjectHideFlags: 0

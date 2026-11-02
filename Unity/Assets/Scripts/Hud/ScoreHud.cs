@@ -8,8 +8,8 @@ using UnityEngine.UI;
 namespace Hud
 {
 	/// <summary>
-	/// The score along the top of the screen, and a banner when a goal goes in.
-	/// Finds the networked match state once it has spawned.
+	/// The score and clock along the top of the screen, and a banner for goals, sudden death
+	/// and the result. Finds the networked match state once it has spawned.
 	/// </summary>
 	public class ScoreHud : MonoBehaviour
 	{
@@ -17,33 +17,52 @@ namespace Hud
 		private Text scoreText;
 
 		[SerializeField]
-		private Text goalText;
+		private Text clockText;
 
 		[SerializeField]
-		private float goalBannerDuration = 2.5f;
+		private Text bannerText;
 
 		private MatchState matchState;
 
-		private float goalBannerHideTime;
+		private float bannerHideTime;
 
 		private void Update()
 		{
 			if (matchState == null && !TryFindMatchState())
 			{
 				scoreText.text = string.Empty;
-				goalText.enabled = false;
+				clockText.text = string.Empty;
+				bannerText.enabled = false;
 				return;
 			}
 
 			scoreText.text = $"HOME  {matchState.ScoreFor(TeamSide.Home)}  -  {matchState.ScoreFor(TeamSide.Away)}  AWAY";
 
-			goalText.enabled = Time.time < goalBannerHideTime;
+			clockText.text = ClockText();
+
+			bannerText.enabled = Time.time < bannerHideTime;
 		}
 
 		private void OnDestroy()
 		{
 			if (matchState != null)
-				matchState.GoalScored -= OnGoalScored;
+				matchState.Announced -= OnAnnounced;
+		}
+
+		private string ClockText()
+		{
+			switch (matchState.Phase)
+			{
+				case MatchPhase.SuddenDeath:
+					return "SUDDEN DEATH";
+
+				case MatchPhase.Ended:
+					return "FINAL";
+
+				default:
+					var seconds = matchState.SecondsRemaining;
+					return $"{seconds / 60}:{seconds % 60:00}";
+			}
 		}
 
 		private bool TryFindMatchState()
@@ -51,16 +70,16 @@ namespace Hud
 			if (!ServiceLocator.TryGet(out matchState))
 				return false;
 
-			matchState.GoalScored += OnGoalScored;
+			matchState.Announced += OnAnnounced;
 
 			return true;
 		}
 
-		private void OnGoalScored(TeamSide team, int points, string description)
+		private void OnAnnounced(string headline, string detail, float duration)
 		{
-			goalText.text = $"{team.ToString().ToUpper()} SCORES\n{description}  +{points}";
+			bannerText.text = $"{headline}\n{detail}";
 
-			goalBannerHideTime = Time.time + goalBannerDuration;
+			bannerHideTime = Time.time + duration;
 		}
 	}
 }

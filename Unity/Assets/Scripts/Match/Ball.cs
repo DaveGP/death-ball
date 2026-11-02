@@ -205,6 +205,24 @@ namespace Match
 		}
 
 		/// <summary>
+		/// Lets go of the ball whatever happens, for a carrier who has been knocked out.
+		/// </summary>
+		[Server]
+		public void Drop()
+		{
+			var previousCarrier = carrier.Value;
+
+			if (previousCarrier == null)
+				return;
+
+			SetLoose();
+
+			BlockPickup(previousCarrier, fumbleRecoveryDelay);
+
+			rigidbody.linearVelocity = Vector3.up * 3f;
+		}
+
+		/// <summary>
 		/// Where a body holds the ball, and where throws leave from.
 		/// </summary>
 		public Vector3 HoldPosition(CharacterNetworkController body)
@@ -274,7 +292,7 @@ namespace Match
 		}
 
 		private bool CanPickUp(CharacterNetworkController body)
-			=> body != blockedBody || Time.time >= blockedUntil;
+			=> !body.IsKnockedOut && (body != blockedBody || Time.time >= blockedUntil);
 
 		private void SetCarrier(CharacterNetworkController body)
 		{

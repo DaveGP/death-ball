@@ -401,11 +401,13 @@ namespace Builders
 			scaler.referenceResolution = new Vector2(1920f, 1080f);
 
 			var scoreText = CreateText("Score", canvasObject.transform, 48, new Vector2(0.5f, 1f), new Vector2(0f, -50f));
-			var goalText = CreateText("Goal Banner", canvasObject.transform, 72, new Vector2(0.5f, 0.5f), new Vector2(0f, 120f));
+			var clockText = CreateText("Clock", canvasObject.transform, 36, new Vector2(0.5f, 1f), new Vector2(0f, -105f));
+			var bannerText = CreateText("Banner", canvasObject.transform, 72, new Vector2(0.5f, 0.5f), new Vector2(0f, 120f));
 
 			var hud = canvasObject.AddComponent<ScoreHud>();
 			SetSerializedReference(hud, "scoreText", scoreText);
-			SetSerializedReference(hud, "goalText", goalText);
+			SetSerializedReference(hud, "clockText", clockText);
+			SetSerializedReference(hud, "bannerText", bannerText);
 		}
 
 		private static Text CreateText(string name, Transform parent, int fontSize, Vector2 anchor, Vector2 position)

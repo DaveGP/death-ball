@@ -53,6 +53,8 @@ namespace Character.Networking
 		// Ticks rather than time so the owning client agrees with the server
 		private readonly SyncVar<uint> staggerEndTick = new();
 
+		private readonly SyncVar<bool> knockedOut = new();
+
 		public TeamSide Team => team.Value;
 
 		public bool IsHumanControlled => localPlayerIndex.Value != NoLocalPlayer;
@@ -60,6 +62,13 @@ namespace Character.Networking
 		public int LocalPlayerIndex => localPlayerIndex.Value;
 
 		public bool IsStaggered => IsSpawned && TimeManager.Tick < staggerEndTick.Value;
+
+		// Out for the rest of the match
+		public bool IsKnockedOut => knockedOut.Value;
+
+		private bool CanAct => !IsStaggered && !IsKnockedOut && !IsPlayFrozen;
+
+		private bool IsPlayFrozen => ServiceLocator.TryGet(out MatchState matchState) && matchState.IsPlayFrozen;
 
 		// Server only
 		public TeamController TeamController { get; private set; }
@@ -144,6 +153,29 @@ namespace Character.Networking
 		public void Stagger(float seconds)
 		{
 			staggerEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+		}
+
+		/// <summary>
+		/// Puts the body down for the rest of the match. It drops the ball, and a human
+		/// controlling it moves to a teammate who is still standing.
+		/// </summary>
+		[Server]
+		public void KnockOut()
+		{
+			if (knockedOut.Value)
+				return;
+
+			knockedOut.Value = true;
+
+			TeamController.OnKnockedOut(this);
+		}
+
+		[Server]
+		public void Revive()
+		{
+			knockedOut.Value = false;
+
+			staggerEndTick.Value = 0;
 		}
 
 		/// <summary>
@@ -248,7 +280,7 @@ namespace Character.Networking
 
 		private void ProcessInput(CharacterInput characterInput)
 		{
-			characterMotor.ProcessInput(IsStaggered ? CharacterInput.None : characterInput);
+			characterMotor.ProcessInput(CanAct ? characterInput : CharacterInput.None);
 		}
 
 		private void LateUpdate()

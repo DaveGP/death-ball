@@ -83,8 +83,18 @@ AI runs only on the server. Because it goes through the same motor code as human
 
 ## Match Systems
 
-* `MatchController` (server) - spawns the teams, ball and `MatchState`, scores goals and resets for the kickoff after each one. Clock, knockout tracking, win conditions and sudden death still to come.
-* `MatchState` (server-owned, spawned) - the score as SyncVars, and a `GoalScored` event raised on every client for the HUD.
+* `MatchController` (server) - spawns the teams, ball and `MatchState`, and runs the match: the clock, goals, resets after goals, the three ways a match ends, and restarting.
+* `MatchState` (server-owned, spawned) - score, phase and whole seconds remaining as SyncVars, and an `Announced` event raised on every client for the HUD banner.
+
+## Match Flow
+
+* Phases: `Playing` → (draw at full time) `SuddenDeath` → `Ended`. The clock (5 minutes by default) stops during goal celebrations.
+* Endings:
+  * **Full time** - most points wins.
+  * **Sudden death** - from a draw at full time, the next goal wins.
+  * **Knockout** - when every player on a team is knocked out, the other team wins straight away, in any phase.
+* Once `Ended`, every body's input is replaced with nothing, so everyone stops where they are. After the result banner (8 seconds) a new match starts: scores reset, everyone is revived and put back on their spawn points, and the ball kicks off.
+* **Knocked out** is a SyncVar on the body. A knocked-out body takes no input, can't pick up the ball (a carrier drops it), is ignored by AI targeting and teammate switching, and greys out. A human on a body that gets knocked out moves to a teammate still standing. Nothing knocks bodies out yet; combat (health and damage) will call `KnockOut()`.
 * `Ball` (server-owned) - see below. Overcharge heat still to come.
 
 ## The Ball

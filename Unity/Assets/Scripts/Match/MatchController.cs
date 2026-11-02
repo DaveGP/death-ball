@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq;
+using Data.Enums;
 using FishNet.Connection;
 using FishNet.Managing;
 using FishNet.Object;
@@ -12,8 +13,9 @@ namespace Match
 {
 	/// <summary>
 	/// Server side. Spawns both teams, the ball and the match state when the server starts,
-	/// hands bodies to the humans that join, and scores goals. The clock and win conditions
-	/// will live here too.
+	/// hands bodies to the humans that join, and runs the match: the clock, goals, and the
+	/// three ways it ends. Most points at full time wins; a draw goes to sudden death, where
+	/// the next goal wins; and knocking out the whole other team wins at any point.
 	/// </summary>
 	public class MatchController : MonoBehaviour
 	{
@@ -32,9 +34,19 @@ namespace Match
 		[SerializeField]
 		private NetworkObject matchStatePrefab;
 
-		// How long the goal is celebrated before everyone resets for the kickoff
+		[SerializeField]
+		private float matchLength = 300f;
+
+		// How long the goal is celebrated before everyone resets for the kickoff. The clock stops meanwhile.
 		[SerializeField]
 		private float goalCelebration = 2.5f;
+
+		[SerializeField]
+		private float suddenDeathBanner = 3f;
+
+		// How long the result stays up before the next match starts
+		[SerializeField]
+		private float resultDuration = 8f;
 
 		private Ball ball;
 
@@ -42,7 +54,11 @@ namespace Match
 
 		private Vector3 previousBallPosition;
 
+		private float timeRemaining;
+
 		private bool resettingAfterGoal;
+
+		private bool IsInPlay => matchState != null && matchState.Phase != MatchPhase.Ended;
 
 		private void OnEnable()
 		{
@@ -72,7 +88,7 @@ namespace Match
 
 				ball = Spawn(ballPrefab, ballSpawn.position).GetComponent<Ball>();
 
-				Kickoff();
+				StartMatch();
 			}
 			else if (args.ConnectionState == LocalConnectionState.Stopped)
 			{
@@ -96,9 +112,24 @@ namespace Match
 			return instance;
 		}
 
+		private void StartMatch()
+		{
+			foreach (var team in teams)
+				team.ResetForMatch();
+
+			timeRemaining = matchLength;
+
+			matchState.StartMatch(Mathf.CeilToInt(matchLength));
+
+			Kickoff();
+		}
+
 		private void FixedUpdate()
 		{
-			if (ball == null || resettingAfterGoal)
+			if (ball == null || !IsInPlay || resettingAfterGoal)
+				return;
+
+			if (CheckForKnockout())
 				return;
 
 			var position = ball.Position;
@@ -106,6 +137,45 @@ namespace Match
 			CheckForGoal(previousBallPosition, position);
 
 			previousBallPosition = position;
+
+			if (matchState.Phase == MatchPhase.Playing && !resettingAfterGoal)
+				RunClock();
+		}
+
+		private void RunClock()
+		{
+			timeRemaining -= Time.fixedDeltaTime;
+
+			matchState.SetSecondsRemaining(Mathf.Max(0, Mathf.CeilToInt(timeRemaining)));
+
+			if (timeRemaining <= 0f)
+				OnFullTime();
+		}
+
+		private void OnFullTime()
+		{
+			var home = matchState.ScoreFor(TeamSide.Home);
+			var away = matchState.ScoreFor(TeamSide.Away);
+
+			if (home == away)
+			{
+				matchState.StartSuddenDeath(suddenDeathBanner);
+				return;
+			}
+
+			EndMatch(home > away ? TeamSide.Home : TeamSide.Away, $"{Mathf.Max(home, away)} - {Mathf.Min(home, away)} at full time");
+		}
+
+		private bool CheckForKnockout()
+		{
+			var beaten = teams.FirstOrDefault(t => t.IsAllKnockedOut);
+
+			if (beaten == null)
+				return false;
+
+			EndMatch(beaten.Opponents.Side, "Knockout");
+
+			return true;
 		}
 
 		// Only a thrown ball scores, and only in the goal the thrower's team attacks
@@ -141,9 +211,18 @@ namespace Match
 				description += " off an air pass";
 			}
 
-			matchState.AddGoal(team.Side, points, description);
-
 			Debug.Log($"{team.Side} scored: {description} (+{points})");
+
+			if (matchState.Phase == MatchPhase.SuddenDeath)
+			{
+				matchState.AddGoal(team.Side, points, description, 0f);
+
+				EndMatch(team.Side, "Sudden death goal");
+
+				return;
+			}
+
+			matchState.AddGoal(team.Side, points, description, goalCelebration);
 
 			StartCoroutine(ResetAfterGoal());
 		}
@@ -162,6 +241,28 @@ namespace Match
 			Kickoff();
 
 			resettingAfterGoal = false;
+		}
+
+		private void EndMatch(TeamSide winner, string reason)
+		{
+			StopAllCoroutines();
+
+			resettingAfterGoal = false;
+
+			ball.EndPlay();
+
+			matchState.EndMatch(winner, reason, resultDuration);
+
+			Debug.Log($"{winner} won: {reason}");
+
+			StartCoroutine(RestartAfterResult());
+		}
+
+		private IEnumerator RestartAfterResult()
+		{
+			yield return new WaitForSeconds(resultDuration);
+
+			StartMatch();
 		}
 
 		private void Kickoff()
