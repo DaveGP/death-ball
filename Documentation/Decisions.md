@@ -49,3 +49,7 @@ Retuned pacing afterwards with AI matches and hit logs. With blocked hits draini
 02/11/2026 - Each player type is a separate prefab with its own stats and special assets, rather than one prefab configured at runtime. FishNet's spawn already says which prefab it is, so clients know the type with nothing extra to sync, and each type can be tuned in the inspector.
 
 In the first AI matches the Runners were knocked out first every time: as the fastest players they reach the loose ball first and take every tackle. Runner health went from 150 to 170, Bruiser from 260 to 240, and AI carriers now dodge clear of a defender on top of them. Runners still go down earlier than the other types in AI play; that's worth checking with people playing.
+
+## Team Tactics AI
+
+02/11/2026 - AI roles are planned per team rather than each player working out for itself who is nearest. A team brain assigns roles a few times a second with a bias towards keeping roles where they are, and each player brain carries its role out. Compared over AI matches: before, everyone near the ball piled in, the fastest player was swarmed at every kickoff and matches ran to 16 goals; with roles, one player per team chases, defenders mark specific opponents and the keeper holds, and matches were close and lower scoring (10 goals, then 3-2). Runners were first preferred as hunters but kept getting knocked out early, so hunting now prefers Bruisers and Enforcers.

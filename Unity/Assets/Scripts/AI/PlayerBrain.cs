@@ -13,17 +13,14 @@ namespace AI
 
 
 	/// <summary>
-	/// Simple ball-aware brain until team tactics exist. The AI nearest a loose ball goes for it,
-	/// the carrier runs at the opponents' goal and shoots, the AI nearest an opponent carrier
-	/// hunts them down, and everyone else supports in their lane or marks an opponent.
+	/// One AI player. Carries out the role its team brain gives it, turning it into input
+	/// each tick, and uses its special when the special says it's worth it.
 	/// </summary>
-	public class BallBrain : IAIBrain
+	public class PlayerBrain : IAIBrain
 	{
 		private const float ShootRange = 12f;
 
 		private const float StrikeRange = 1.6f;
-
-		private const float SupportDistance = 6f;
 
 		private const float ArriveDistance = 0.5f;
 
@@ -47,11 +44,16 @@ namespace AI
 		// How far out from our ring the keeper stands
 		private const float KeeperDistance = 3f;
 
-		// How far a marker stands off between swings
+		// How far a marker stands off between swings, goal side of their opponent
 		private const float MarkDistance = 2.5f;
 
 		// Supporters start guarding when an opponent is this close
 		private const float GuardRange = 3f;
+
+		// An escort takes on anyone this close to the carrier, and otherwise runs this far to one side
+		private const float EscortRange = 5f;
+
+		private const float EscortOffset = 2.5f;
 
 		private const float ReactionMin = 0.15f;
 
@@ -59,7 +61,8 @@ namespace AI
 
 		private const float PressureRange = 3f;
 
-		private const float OpenDistance = 4f;
+		// Width of the path a pass or shot needs clear of opponents
+		private const float LaneWidth = 1.2f;
 
 		private const float SwerveWeight = 1.5f;
 
@@ -70,8 +73,6 @@ namespace AI
 
 		private readonly TeamController team;
 
-		private readonly float laneX;
-
 		private readonly CharacterSpecial special;
 
 		private float nextActionTime;
@@ -80,104 +81,76 @@ namespace AI
 
 		private float nextDodgeTime;
 
-		public BallBrain(CharacterNetworkController self, TeamController team, float laneX)
+		public PlayerBrain(CharacterNetworkController self, TeamController team)
 		{
 			this.self = self;
 			this.team = team;
-			this.laneX = laneX;
 
 			special = self.GetComponent<CharacterSpecial>();
 		}
 
 		private Vector3 Position => self.transform.position;
 
-		// The arena is centred on the origin, so the goal's side gives the direction of attack
-		private float AttackSign => Mathf.Sign(team.AttackTarget.position.z);
+		private Transform OwnGoal => team.Opponents.AttackTarget;
 
 		public CharacterInput Think()
 		{
 			if (!ServiceLocator.TryGet(out Ball ball))
-				return Mark();
-
-			var carrier = ball.Carrier;
+				return CharacterInput.None;
 
 			// Each special knows when it's worth using
 			if (special.ShouldAIUse)
 				return new CharacterInput(Vector2.zero, Vector2.zero, CharacterAction.Special);
 
-			if (carrier == self)
-				return AttackGoal();
+			// Whatever the plan says, the ball is ours now
+			if (ball.Carrier == self)
+				return Carry();
 
-			if (carrier == null)
-				return IsNearestAI(ball.transform.position)
-					? MoveTo(ball.transform.position, true)
-					: Support(ball.transform.position);
+			var orders = team.Brain.OrdersFor(self);
 
-			if (carrier.Team == self.Team)
-				return Support(carrier.transform.position);
-
-			if (IsNearestAI(carrier.transform.position))
-				return Strike(carrier.transform, CharacterAction.Tackle, HuntCooldownMin, HuntCooldownMax, false);
-
-			return IsNearestAI(OwnGoal.position)
-				? Keep(carrier.transform.position)
-				: Mark();
+			return orders.Role switch
+			{
+				AIRole.Chase => MoveTo(ball.Position, true),
+				AIRole.Escort => Escort(orders.Target),
+				AIRole.Hunt => Hunt(orders.Target),
+				AIRole.Mark => Mark(orders.Target),
+				AIRole.Keep => Keep(ball.Carrier != null ? ball.Carrier.transform.position : ball.Position),
+				_ => Guarded(MoveTo(orders.Position, false))
+			};
 		}
 
-		private Transform OwnGoal => team.Opponents.AttackTarget;
-
-		private bool IsNearestAI(Vector3 position)
-			=> team.NearestBodyTo(position, aiOnly: true) == self.transform;
-
-		// Stands between the carrier and our ring with guard up. Shots are too fast to catch,
-		// so one that hits the keeper bounces off instead of scoring.
-		private CharacterInput Keep(Vector3 carrierPosition)
+		private CharacterInput Carry()
 		{
-			var goal = OwnGoal.position;
+			var goal = team.AttackTarget.position;
 
-			var toCarrier = carrierPosition - goal;
-			toCarrier.y = 0f;
-
-			var position = goal + toCarrier.normalized * KeeperDistance;
-			position.y = 0f;
-
-			var move = MoveTo(position, true);
-
-			var facing = Flat(toCarrier).normalized;
-
-			return new CharacterInput(move.Move, facing, move.Action | CharacterAction.Block);
-		}
-
-		private CharacterInput AttackGoal()
-		{
-			var toGoal = Flat(team.AttackTarget.position - Position);
+			var toGoal = Flat(goal - Position);
 
 			var direction = toGoal.normalized;
 
-			if (toGoal.magnitude <= ShootRange)
-				return new CharacterInput(direction, Rotate(direction, Random.Range(-ShotSpread, ShotSpread)), CharacterAction.Shoot);
-
+			// In range with a clear sight of the ring, or in range and about to be flattened
 			var threat = team.Opponents.NearestBodyTo(Position);
 
-			if (threat == null || Flat(threat.position - Position).magnitude > PressureRange)
+			var threatDistance = threat == null ? float.MaxValue : Flat(threat.position - Position).magnitude;
+
+			if (toGoal.magnitude <= ShootRange
+			    && (team.Brain.IsLaneClear(Position, goal, LaneWidth) || threatDistance <= PressureRange))
+				return new CharacterInput(direction, Rotate(direction, Random.Range(-ShotSpread, ShotSpread)), CharacterAction.Shoot);
+
+			if (threatDistance > PressureRange)
 				return new CharacterInput(direction, direction, CharacterAction.Sprint);
 
-			// Under pressure: get rid of it, or swerve round the defender
-			var openTeammate = FindOpenTeammate();
+			// Under pressure: pass to someone open, or swerve round the defender
+			var receiver = FindReceiver();
 
-			if (openTeammate != null)
-			{
-				var toTeammate = Flat(openTeammate.position - Position).normalized;
-
-				return new CharacterInput(direction, toTeammate, CharacterAction.Pass);
-			}
+			if (receiver != null)
+				return new CharacterInput(direction, Flat(receiver.position - Position).normalized, CharacterAction.Pass);
 
 			var away = Flat(Position - threat.position).normalized;
 
 			var swerve = (direction + away * SwerveWeight).normalized;
 
 			// Right on top of us: dodge clear, which also slips the hit
-			if (Flat(threat.position - Position).magnitude <= DodgeRange && Time.time >= nextDodgeTime)
+			if (threatDistance <= DodgeRange && Time.time >= nextDodgeTime)
 			{
 				nextDodgeTime = Time.time + Random.Range(DodgeCooldownMin, DodgeCooldownMax);
 
@@ -187,43 +160,77 @@ namespace AI
 			return new CharacterInput(swerve, swerve, CharacterAction.Sprint);
 		}
 
-		// The furthest forward teammate with no opponent near them
-		private Transform FindOpenTeammate()
+		// The teammate furthest towards goal with a clear passing lane, preferring throwers
+		private Transform FindReceiver()
 		{
 			Transform best = null;
 
-			var bestProgress = float.MinValue;
+			var bestScore = float.MinValue;
+
+			var attackSign = Mathf.Sign(team.AttackTarget.position.z);
 
 			foreach (var teammate in team.Bodies)
 			{
-				if (teammate == self)
+				if (teammate == self || teammate.IsKnockedOut)
 					continue;
 
 				var position = teammate.transform.position;
 
-				var marker = team.Opponents.NearestBodyTo(position);
-
-				if (marker != null && Flat(marker.position - position).magnitude < OpenDistance)
+				if (!team.Brain.IsLaneClear(Position, position, LaneWidth))
 					continue;
 
-				var progress = position.z * AttackSign;
+				var score = position.z * attackSign + (teammate.Type == PlayerType.Thrower ? 4f : 0f);
 
-				if (progress <= bestProgress)
+				if (score <= bestScore)
 					continue;
 
 				best = teammate.transform;
-				bestProgress = progress;
+				bestScore = score;
 			}
 
 			return best;
 		}
 
-		// Keep to our own lane, a little ahead of the play
-		private CharacterInput Support(Vector3 play)
+		// Runs alongside our carrier and takes on whoever closes in on them
+		private CharacterInput Escort(CharacterNetworkController carrier)
 		{
-			var position = new Vector3(laneX, 0f, play.z + AttackSign * SupportDistance);
+			if (carrier == null)
+				return CharacterInput.None;
 
-			return Guarded(MoveTo(position, false));
+			var carrierPosition = carrier.transform.position;
+
+			var threat = team.Opponents.NearestBodyTo(carrierPosition);
+
+			if (threat != null && Flat(threat.position - carrierPosition).magnitude <= EscortRange)
+				return Strike(threat, CharacterAction.Attack, MarkCooldownMin, MarkCooldownMax, true);
+
+			var side = Position.x < carrierPosition.x ? -1f : 1f;
+
+			return Guarded(MoveTo(carrierPosition + Vector3.right * (side * EscortOffset), true));
+		}
+
+		private CharacterInput Hunt(CharacterNetworkController carrier)
+			=> carrier == null
+				? CharacterInput.None
+				: Strike(carrier.transform, CharacterAction.Tackle, HuntCooldownMin, HuntCooldownMax, false);
+
+		// Stands between the play and our ring with guard up. Shots are too fast to catch,
+		// so one that hits the keeper bounces off instead of scoring.
+		private CharacterInput Keep(Vector3 play)
+		{
+			var goal = OwnGoal.position;
+
+			var toPlay = play - goal;
+			toPlay.y = 0f;
+
+			var position = goal + toPlay.normalized * KeeperDistance;
+			position.y = 0f;
+
+			var move = MoveTo(position, true);
+
+			var facing = Flat(toPlay).normalized;
+
+			return new CharacterInput(move.Move, facing, move.Action | CharacterAction.Block);
 		}
 
 		// Supporters aren't looking for a fight, but they cover up when someone is on them and
@@ -247,30 +254,28 @@ namespace AI
 			return input;
 		}
 
-		// Shadows an opponent from a step back with guard up, closing in for a swing every few
-		// seconds. Standing toe to toe the whole time made fights constant and matches short.
-		private CharacterInput Mark()
+		// Shadows an opponent from a step back on our goal's side with guard up, closing in for a
+		// swing every few seconds. Standing toe to toe the whole time made fights constant.
+		private CharacterInput Mark(CharacterNetworkController opponent)
 		{
-			var opponent = team.Opponents.NearestBodyTo(Position);
+			if (opponent == null || opponent.IsKnockedOut)
+				return Guarded(CharacterInput.None);
 
-			if (opponent == null)
-				return CharacterInput.None;
+			var opponentPosition = opponent.transform.position;
 
 			if (Time.time >= nextActionTime)
-				return Strike(opponent, CharacterAction.Attack, MarkCooldownMin, MarkCooldownMax, true);
+				return Strike(opponent.transform, CharacterAction.Attack, MarkCooldownMin, MarkCooldownMax, true);
 
 			inStrikeRange = false;
 
-			var away = Position - opponent.position;
-			away.y = 0f;
+			var goalSide = OwnGoal.position - opponentPosition;
+			goalSide.y = 0f;
 
-			var standOff = opponent.position + away.normalized * MarkDistance;
-
-			var toOpponent = Flat(opponent.position - Position).normalized;
+			var standOff = opponentPosition + goalSide.normalized * MarkDistance;
 
 			var move = MoveTo(standOff, false);
 
-			return new CharacterInput(move.Move, toOpponent, CharacterAction.Block);
+			return new CharacterInput(move.Move, Flat(opponentPosition - Position).normalized, CharacterAction.Block);
 		}
 
 		private CharacterInput Strike(Transform target, CharacterAction strike, float cooldownMin, float cooldownMax, bool guard)

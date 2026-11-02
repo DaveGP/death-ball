@@ -62,13 +62,19 @@ PlayerController (abstract)  - Bind(body) sets the body's input source
 
 Two layers, so AI produces exactly the same input as a human:
 
-* **Team tactics** (`TeamBrain`): assigns a role to each AI body every few ticks, such as chase the ball, carry, support, mark a player, guard the ring.
-* **Per-body brain** (`IAIBrain`): turns its role into a `CharacterInput` each tick (move direction, aim, action flags). For now `BallBrain` does both jobs:
-  * The AI nearest a loose ball goes for it.
-  * The carrier runs at goal and shoots in range (with a few degrees of spread), passing to an open teammate or swerving when pressed, and dodging clear of a defender right on top of it.
-  * When the other team has the ball, the AI nearest the carrier hunts them with tackles, the AI nearest our ring keeps goal (stands between carrier and ring with guard up, so shots deflect off it), and the rest mark: shadow an opponent from 2.5 m with guard up, closing in for a swing every 2.5-4 s.
-  * When our team has the ball, the rest support in their lane, guarding when an opponent is within 3 m and hitting back if one gets in reach.
+* **Team tactics** (`TeamBrain`, one per team, server only) re-plans four times a second, giving each AI player an `AIOrders`: a role plus who or where it's about.
+  * Loose ball: one player **chases** it, a **keeper** drops back if the ball is in our half, and the rest **support**.
+  * Our ball: the AI carrier **carries**, one teammate **escorts** them (fights whoever closes in on the carrier), and the rest **support**: spread across four lanes ahead of the play, Throwers furthest forward to receive, Enforcers furthest back.
+  * Their ball: one player **hunts** the carrier, one **keeps** goal, and the rest each **mark** a different opponent, likeliest receivers (Throwers) first.
+  * Each role goes to the lowest-cost player: distance, less a bonus for suited types (Enforcers keep, Bruisers hunt and escort, Runners chase), less a bonus for whoever already had the role, so roles don't flicker.
+  * Humans aren't given roles; a human carrier still counts as our ball.
+* **Per-player brain** (`PlayerBrain`) turns its orders into a `CharacterInput` each tick:
+  * Carrier: runs at goal; shoots in range when the lane to the ring is clear (or when about to be flattened), with a few degrees of spread; under pressure passes to the most advanced teammate with a clear lane (preferring Throwers), or swerves and dodges clear.
+  * Marker: shadows its opponent from 2.5 m on our goal's side with guard up, closing in for a swing every 2.5-4 s.
+  * Keeper: stands between the play and our ring with guard up, so shots deflect off it.
+  * Support and escort guard when an opponent is within 3 m and hit back if one gets in reach.
   * Every swing waits a random beat once in range, so two AIs never attack on the same tick.
+  * Uses its special when the special says it's worth it.
 
 AI runs only on the server. Because it goes through the same motor code as humans, it needs no special networking.
 

@@ -168,7 +168,11 @@ namespace Builders
 
 			root.AddComponent<ActionController>();
 			root.AddComponent<CharacterMotor>();
-			root.AddComponent<CharacterNetworkController>();
+			var networkController = root.AddComponent<CharacterNetworkController>();
+
+			var serializedController = new SerializedObject(networkController);
+			serializedController.FindProperty("playerType").enumValueIndex = (int)playerType.Type;
+			serializedController.ApplyModifiedPropertiesWithoutUndo();
 
 			var health = root.AddComponent<CharacterHealth>();
 			SetSerializedReference(health, "stats", stats);
@@ -276,7 +280,9 @@ namespace Builders
 
 		private sealed class PlayerTypeSpec
 		{
-			public string Name;
+			public PlayerType Type;
+
+			public string Name => Type.ToString();
 
 			public System.Action<CharacterStats> TuneStats;
 
@@ -292,7 +298,7 @@ namespace Builders
 		{
 			new()
 			{
-				Name = "Bruiser",
+				Type = PlayerType.Bruiser,
 				BodyScale = new Vector3(1f, 1.05f, 1f),
 				CreateSpecial = () => CreateSpecial<SlamSpecial>("Slam", new Color(1f, 0.6f, 0.1f), 3.5f),
 				TuneStats = stats =>
@@ -307,7 +313,7 @@ namespace Builders
 			},
 			new()
 			{
-				Name = "Runner",
+				Type = PlayerType.Runner,
 				BodyScale = new Vector3(0.6f, 1.05f, 0.6f),
 				CreateSpecial = () => CreateSpecial<SecondWindSpecial>("Second Wind", new Color(0.3f, 1f, 0.4f), 1.5f),
 				TuneStats = stats =>
@@ -324,7 +330,7 @@ namespace Builders
 			},
 			new()
 			{
-				Name = "Thrower",
+				Type = PlayerType.Thrower,
 				BodyScale = new Vector3(0.75f, 1f, 0.75f),
 				CreateSpecial = () => CreateSpecial<RocketSpecial>("Rocket", new Color(1f, 0.25f, 0.2f), 1.5f),
 				TuneStats = stats =>
@@ -336,7 +342,7 @@ namespace Builders
 			},
 			new()
 			{
-				Name = "Enforcer",
+				Type = PlayerType.Enforcer,
 				BodyScale = new Vector3(0.85f, 1f, 0.85f),
 				Shield = true,
 				CreateSpecial = () => CreateSpecial<IronWallSpecial>("Iron Wall", new Color(0.6f, 0.8f, 1f), 1.8f),

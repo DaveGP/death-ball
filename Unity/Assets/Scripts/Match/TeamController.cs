@@ -50,10 +50,15 @@ namespace Match
 
 		public IReadOnlyList<CharacterNetworkController> Bodies => bodies;
 
+		// Server only
+		public TeamBrain Brain { get; private set; }
+
 		public bool IsAllKnockedOut => bodies.Count > 0 && bodies.All(b => b.IsKnockedOut);
 
 		public void SpawnBodies(NetworkManager networkManager)
 		{
+			Brain = new TeamBrain(this);
+
 			for (var i = 0; i < spawnPoints.Length; i++)
 			{
 				var spawnPoint = spawnPoints[i];
@@ -70,7 +75,7 @@ namespace Match
 
 				body.Initialise(this);
 
-				var brain = new BallBrain(body, this, spawnPoint.position.x);
+				var brain = new PlayerBrain(body, this);
 
 				aiControllers[body] = new AIPlayerController(brain);
 
@@ -109,8 +114,15 @@ namespace Match
 				SwitchFrom(body);
 		}
 
+		private void FixedUpdate()
+		{
+			Brain?.Tick();
+		}
+
 		public void Clear()
 		{
+			Brain = null;
+
 			bodies.Clear();
 			aiControllers.Clear();
 		}

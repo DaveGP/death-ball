@@ -642,6 +642,7 @@ MonoBehaviour:
   _componentIndexCache: 255
   _addedNetworkObject: {fileID: 2362267572088778225}
   _networkObjectCache: {fileID: 0}
+  playerType: 1
 --- !u!114 &2556047403648982612
 MonoBehaviour:
   m_ObjectHideFlags: 0

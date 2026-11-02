@@ -19,7 +19,7 @@
 * [x] Stamina and specials (one shared special, Slam, until player types)
 * [x] Player types, each with its own special
 * [ ] Ball overcharge
-* [ ] Team tactics AI
+* [x] Team tactics AI
 * [ ] Arena hazards and more arenas
 * [ ] League mode
 * [ ] Art, animation, audio and commentary

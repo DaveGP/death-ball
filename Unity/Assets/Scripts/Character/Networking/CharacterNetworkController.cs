@@ -31,6 +31,10 @@ namespace Character.Networking
 	{
 		private const int NoLocalPlayer = -1;
 
+		// Set on each type's prefab, so every machine knows it from the spawn
+		[SerializeField]
+		private PlayerType playerType;
+
 		private ICharacterInputSource inputSource = NullInputSource.Instance;
 
 		private ICharacterMotor characterMotor;
@@ -64,6 +68,8 @@ namespace Character.Networking
 		private readonly SyncVar<uint> fortifyEndTick = new();
 
 		public TeamSide Team => team.Value;
+
+		public PlayerType Type => playerType;
 
 		public bool IsHumanControlled => localPlayerIndex.Value != NoLocalPlayer;
 
