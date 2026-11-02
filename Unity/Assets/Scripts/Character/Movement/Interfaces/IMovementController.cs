@@ -25,5 +25,10 @@ namespace Character.Movement.Interfaces
 		/// Sets the Character's Gait.
 		/// </summary>
 		public void SetGait(CharacterGait gait);
+
+		/// <summary>
+		/// Sets whether the character is slowed by carrying the ball.
+		/// </summary>
+		public void SetCarrying(bool carrying);
 	}
 }

@@ -1,6 +1,7 @@
 using System.Linq;
 using FishNet.Connection;
 using FishNet.Managing;
+using FishNet.Object;
 using FishNet.Transporting;
 using Networking;
 using UnityEngine;
@@ -19,6 +20,12 @@ namespace Match
 
 		[SerializeField]
 		private TeamController[] teams;
+
+		[SerializeField]
+		private NetworkObject ballPrefab;
+
+		[SerializeField]
+		private Transform ballSpawn;
 
 		private void OnEnable()
 		{
@@ -43,12 +50,27 @@ namespace Match
 			{
 				foreach (var team in teams)
 					team.SpawnBodies(networkManager);
+
+				SpawnBall();
 			}
 			else if (args.ConnectionState == LocalConnectionState.Stopped)
 			{
 				foreach (var team in teams)
 					team.Clear();
 			}
+		}
+
+		private void SpawnBall()
+		{
+			var instance = networkManager.GetPooledInstantiated(
+				ballPrefab,
+				ballSpawn.position,
+				Quaternion.identity,
+				true);
+
+			networkManager.ServerManager.Spawn(instance);
+
+			instance.GetComponent<Ball>().Kickoff();
 		}
 
 		private void OnRemoteConnectionState(NetworkConnection connection, RemoteConnectionStateArgs args)

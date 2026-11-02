@@ -32,6 +32,15 @@ namespace Builders
 
 		private const string PrefabPath = "Assets/Prefabs/Character.prefab";
 
+		private const string BallPrefabPath = "Assets/Prefabs/Ball.prefab";
+
+		private const string BallPhysicsMaterialPath = "Assets/Materials/BallPhysics.asset";
+
+		// Where the goal rings will go, inset from each end wall
+		private const float GoalInset = 3f;
+
+		private const float GoalHeight = 2f;
+
 		private const string StatsPath = "Assets/ScriptableObjects/DefaultCharacterStats.asset";
 
 		private const string MaterialsFolder = "Assets/Materials";
@@ -49,12 +58,18 @@ namespace Builders
 		{
 			EnsureLayer("Ground");
 			EnsureLayer("Character");
+			EnsureLayer("Ball");
 
 			var stats = CreateStats();
 
 			var prefab = CreateCharacterPrefab(stats);
 
-			CreateScene(prefab);
+			var ballPrefab = CreateBallPrefab();
+
+			// Rebuilt prefabs lose their FishNet asset path hash until the collection is refreshed
+			EditorApplication.ExecuteMenuItem("Tools/Fish-Networking/Utility/Refresh Default Prefabs");
+
+			CreateScene(prefab, ballPrefab);
 
 			AssetDatabase.SaveAssets();
 
@@ -126,6 +141,55 @@ namespace Builders
 			return prefab;
 		}
 
+		private static GameObject CreateBallPrefab()
+		{
+			var root = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+
+			root.name = "Ball";
+			root.layer = LayerMask.NameToLayer("Ball");
+			root.transform.localScale = Vector3.one * 0.5f;
+			root.GetComponent<Renderer>().sharedMaterial = CreateMaterial("Ball", new Color(0.75f, 0.75f, 0.8f), 0.9f);
+			root.GetComponent<Collider>().sharedMaterial = CreateBallPhysicsMaterial();
+
+			var rigidbody = root.AddComponent<Rigidbody>();
+			rigidbody.mass = 4f;
+			rigidbody.linearDamping = 0.1f;
+			rigidbody.angularDamping = 0.5f;
+			rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+			rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+			root.AddComponent<NetworkObject>();
+			root.AddComponent<NetworkTransform>();
+			root.AddComponent<Ball>();
+
+			var prefab = PrefabUtility.SaveAsPrefabAsset(root, BallPrefabPath);
+
+			Object.DestroyImmediate(root);
+
+			return prefab;
+		}
+
+		private static PhysicsMaterial CreateBallPhysicsMaterial()
+		{
+			var material = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(BallPhysicsMaterialPath);
+
+			if (material == null)
+			{
+				material = new PhysicsMaterial("Ball");
+
+				AssetDatabase.CreateAsset(material, BallPhysicsMaterialPath);
+			}
+
+			material.bounciness = 0.5f;
+			material.bounceCombine = PhysicsMaterialCombine.Maximum;
+			material.dynamicFriction = 0.4f;
+			material.staticFriction = 0.4f;
+
+			EditorUtility.SetDirty(material);
+
+			return material;
+		}
+
 		private static Renderer CreateVisual(PrimitiveType type, string name, Transform parent, Vector3 position, Vector3 scale, Material material)
 		{
 			var visual = GameObject.CreatePrimitive(type);
@@ -144,7 +208,7 @@ namespace Builders
 			return renderer;
 		}
 
-		private static void CreateScene(GameObject characterPrefab)
+		private static void CreateScene(GameObject characterPrefab, GameObject ballPrefab)
 		{
 			EnsureFolder("Assets/Scenes");
 
@@ -166,9 +230,18 @@ namespace Builders
 			SetSerializedReference(home, "opponents", away);
 			SetSerializedReference(away, "opponents", home);
 
+			// Each team shoots at the goal at the other team's end
+			SetSerializedReference(home, "attackTarget", CreateGoalTarget(TeamSide.Away, 1f));
+			SetSerializedReference(away, "attackTarget", CreateGoalTarget(TeamSide.Home, -1f));
+
+			var ballSpawn = new GameObject("Ball Spawn").transform;
+			ballSpawn.position = Vector3.up;
+
 			var match = new GameObject("Match").AddComponent<MatchController>();
 			SetSerializedReference(match, "networkManager", networkManager);
 			SetSerializedArray(match, "teams", new Object[] { home, away });
+			SetSerializedReference(match, "ballPrefab", ballPrefab.GetComponent<NetworkObject>());
+			SetSerializedReference(match, "ballSpawn", ballSpawn);
 
 			var cameraObject = new GameObject("Main Camera") { tag = "MainCamera" };
 			cameraObject.AddComponent<Camera>();
@@ -234,6 +307,22 @@ namespace Builders
 				Object.DestroyImmediate(block.GetComponent<Collider>());
 		}
 
+		// A marker for where the goal ring will be, with a post so players can see it
+		private static Transform CreateGoalTarget(TeamSide owner, float end)
+		{
+			var target = new GameObject($"Goal {owner}").transform;
+
+			target.position = new Vector3(0f, GoalHeight, end * (ArenaLength / 2f - GoalInset));
+
+			var colour = owner == TeamSide.Home ? new Color(0.8f, 0.15f, 0.1f) : new Color(0.1f, 0.3f, 0.85f);
+
+			var post = CreateVisual(PrimitiveType.Cylinder, "Post", target, Vector3.down * (GoalHeight / 2f), new Vector3(0.3f, GoalHeight / 2f, 0.3f), CreateMaterial($"Goal {owner}", colour));
+
+			post.gameObject.isStatic = true;
+
+			return target;
+		}
+
 		// Side is -1 for the home end of the arena and 1 for the away end
 		private static TeamController CreateTeam(TeamSide side, GameObject characterPrefab, float end)
 		{
@@ -266,7 +355,7 @@ namespace Builders
 			return team;
 		}
 
-		private static Material CreateMaterial(string name, Color colour)
+		private static Material CreateMaterial(string name, Color colour, float smoothness = 0.5f)
 		{
 			EnsureFolder(MaterialsFolder);
 
@@ -282,6 +371,7 @@ namespace Builders
 			}
 
 			material.SetColor("_BaseColor", colour);
+			material.SetFloat("_Smoothness", smoothness);
 
 			EditorUtility.SetDirty(material);
 

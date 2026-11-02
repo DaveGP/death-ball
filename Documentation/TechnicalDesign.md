@@ -63,7 +63,7 @@ PlayerController (abstract)  - Bind(body) sets the body's input source
 Two layers, so AI produces exactly the same input as a human:
 
 * **Team tactics** (`TeamBrain`): assigns a role to each AI body every few ticks, such as chase the ball, carry, support, mark a player, guard the ring.
-* **Per-body brain** (`IAIBrain`): turns its role into a `CharacterInput` each tick (move direction, aim, action flags). For now `ChaseBrain` runs at the nearest opponent and attacks.
+* **Per-body brain** (`IAIBrain`): turns its role into a `CharacterInput` each tick (move direction, aim, action flags). For now `BallBrain` does both jobs: the AI nearest a loose ball goes for it, the carrier runs at goal and shoots in range (passing to an open teammate or swerving when pressed), the AI nearest an opponent carrier hunts them, and the rest support in their lane or mark.
 
 AI runs only on the server. Because it goes through the same motor code as humans, it needs no special networking.
 
@@ -84,5 +84,15 @@ AI runs only on the server. Because it goes through the same motor code as human
 ## Match Systems
 
 * `MatchController` (server) - clock, score, knockout tracking, win conditions, sudden death, resets after goals.
-* `Ball` (server-owned) - carrier, overcharge heat, throws, loose-ball physics.
+* `Ball` (server-owned) - see below. Overcharge heat still to come.
+
+## The Ball
+
+* Owned by the server and simulated only there; clients see it through a `carrier` SyncVar and a `NetworkTransform`. It registers itself in the `ServiceLocator` on every machine, so any code can find it with `TryGet`.
+* **Pickup and catching** are the same thing: each tick a loose ball below head height goes to the nearest body within reach. The ball doesn't collide with players, so a pass through a crowd can be intercepted by anyone it passes.
+* **Carrying** - the ball is kinematic and held in front of the carrier, who moves at `CarrySpeedMultiplier` and can't attack (tackling still works).
+* **Pass** snaps to the teammate nearest the aim (within 35°) and leads them by their velocity. **Shoot** throws hard along the aim, or facing if not aiming.
+* **Stripping** - any attack or tackle that lands on an opponent carrier knocks the ball back towards the hitter and staggers the carrier for a second. A new carrier can't be stripped for a second, and a stripped or throwing player can't grab the ball straight back. Without these two rules, two players just traded the ball on the spot.
+* **Stagger** is a tick-based SyncVar on the body, so the owning client and the server agree on it; a staggered body's input is replaced with nothing.
+* Only the server acts on the ball. Actions also run on the owning client (`RunLocally`), but there they just draw debug rays.
 * `Goal` - ring trigger that reports scores to `MatchController`.

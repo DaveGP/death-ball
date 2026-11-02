@@ -3,6 +3,7 @@ using System.Linq;
 using AI;
 using Character.Networking;
 using Data.Enums;
+using DependencyInjection;
 using FishNet.Connection;
 using FishNet.Managing;
 using FishNet.Object;
@@ -30,11 +31,19 @@ namespace Match
 		[SerializeField]
 		private TeamController opponents;
 
+		// The goal this team shoots at
+		[SerializeField]
+		private Transform attackTarget;
+
 		private readonly List<CharacterNetworkController> bodies = new();
 
 		private readonly Dictionary<CharacterNetworkController, AIPlayerController> aiControllers = new();
 
 		public TeamSide Side => side;
+
+		public TeamController Opponents => opponents;
+
+		public Transform AttackTarget => attackTarget;
 
 		public IReadOnlyList<CharacterNetworkController> Bodies => bodies;
 
@@ -54,7 +63,7 @@ namespace Match
 
 				body.Initialise(this);
 
-				var brain = new ChaseBrain(body.transform, () => opponents.NearestBodyTo(body.transform.position));
+				var brain = new BallBrain(body, this, spawnPoint.position.x);
 
 				aiControllers[body] = new AIPlayerController(brain);
 
@@ -86,17 +95,18 @@ namespace Match
 		}
 
 		/// <summary>
-		/// Moves a human from their body to the nearest teammate no human controls.
+		/// Moves a human from their body to the teammate no human controls that is nearest the ball.
 		/// </summary>
 		public void SwitchFrom(CharacterNetworkController body)
 		{
 			if (!body.IsHumanControlled)
 				return;
 
-			var target = bodies
-				.Where(b => !b.IsHumanControlled)
-				.OrderBy(b => (b.transform.position - body.transform.position).sqrMagnitude)
-				.FirstOrDefault();
+			var focus = ServiceLocator.TryGet(out Ball ball)
+				? ball.transform.position
+				: body.transform.position;
+
+			var target = NearestBodyTo(focus, aiOnly: true)?.GetComponent<CharacterNetworkController>();
 
 			if (target == null)
 				return;
@@ -116,13 +126,28 @@ namespace Match
 				HandToAI(body);
 		}
 
-		public Transform NearestBodyTo(Vector3 position)
+		// Called by every AI each tick, so no LINQ here
+		public Transform NearestBodyTo(Vector3 position, bool aiOnly = false)
 		{
-			return bodies
-				.Where(b => b != null)
-				.OrderBy(b => (b.transform.position - position).sqrMagnitude)
-				.Select(b => b.transform)
-				.FirstOrDefault();
+			Transform nearest = null;
+
+			var nearestDistance = float.MaxValue;
+
+			foreach (var body in bodies)
+			{
+				if (body == null || (aiOnly && body.IsHumanControlled))
+					continue;
+
+				var distance = (body.transform.position - position).sqrMagnitude;
+
+				if (distance >= nearestDistance)
+					continue;
+
+				nearest = body.transform;
+				nearestDistance = distance;
+			}
+
+			return nearest;
 		}
 
 		private void HandToHuman(CharacterNetworkController body, NetworkConnection connection, int localIndex)

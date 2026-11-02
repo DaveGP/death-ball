@@ -49,11 +49,16 @@ namespace Character.Networking
 
 		private readonly SyncVar<CharacterGait> networkGait = new();
 
+		// Ticks rather than time so the owning client agrees with the server
+		private readonly SyncVar<uint> staggerEndTick = new();
+
 		public TeamSide Team => team.Value;
 
 		public bool IsHumanControlled => localPlayerIndex.Value != NoLocalPlayer;
 
 		public int LocalPlayerIndex => localPlayerIndex.Value;
+
+		public bool IsStaggered => IsSpawned && TimeManager.Tick < staggerEndTick.Value;
 
 		// Server only
 		public TeamController TeamController { get; private set; }
@@ -132,6 +137,15 @@ namespace Character.Networking
 		}
 
 		/// <summary>
+		/// Stops the body acting for a while, whoever is driving it.
+		/// </summary>
+		[Server]
+		public void Stagger(float seconds)
+		{
+			staggerEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+		}
+
+		/// <summary>
 		/// Asks the server to move this body's controller to a teammate.
 		/// </summary>
 		public void RequestSwitch()
@@ -200,7 +214,7 @@ namespace Character.Networking
 
 		private void ProcessInput(CharacterInput characterInput)
 		{
-			characterMotor.ProcessInput(characterInput);
+			characterMotor.ProcessInput(IsStaggered ? CharacterInput.None : characterInput);
 		}
 
 		private void LateUpdate()

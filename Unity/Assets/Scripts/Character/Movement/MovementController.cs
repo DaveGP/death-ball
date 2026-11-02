@@ -39,6 +39,8 @@ namespace Character.Movement
 
 		private float nextDodgeTime;
 
+		private bool isCarrying;
+
 
 		private void Awake()
 		{
@@ -59,6 +61,11 @@ namespace Character.Movement
 		public void SetGait(CharacterGait gait)
 		{
 			Gait = gait;
+		}
+
+		public void SetCarrying(bool carrying)
+		{
+			isCarrying = carrying;
 		}
 
 		public void Move(Vector2 direction)
@@ -83,13 +90,15 @@ namespace Character.Movement
 
 		private float CalculateMoveSpeed(CharacterGait characterGait)
 		{
-			return characterGait switch
+			var speed = characterGait switch
 			{
 				CharacterGait.Walk => stats.WalkSpeed,
 				CharacterGait.Run => stats.RunSpeed,
 				CharacterGait.Sprint => stats.SprintSpeed,
 				_ => 0
 			};
+
+			return isCarrying ? speed * stats.CarrySpeedMultiplier : speed;
 		}
 
 		public void Face(Vector2 direction)

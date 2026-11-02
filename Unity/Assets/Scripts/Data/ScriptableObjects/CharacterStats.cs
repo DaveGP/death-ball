@@ -11,6 +11,8 @@ namespace Data.ScriptableObjects
 
 		public float SprintSpeed = 8f;
 
+		public float CarrySpeedMultiplier = 0.85f;
+
 		public float Acceleration = 40f;
 
 		public float TurnSpeed = 720f;

@@ -45,6 +45,8 @@ namespace Character.Movement
 
 			HandleGait(characterInput);
 
+			movementController.SetCarrying(actionController.IsCarrying);
+
 			movementController.Move(Vector2.ClampMagnitude(characterInput.Move, 1f));
 		}
 

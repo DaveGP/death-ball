@@ -212,22 +212,24 @@ MonoBehaviour:
   _spectatorInterpolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
-  <PrefabId>k__BackingField: 65535
+  <PrefabId>k__BackingField: 2
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 4865004897278055663
   SceneId: 0
   SerializedTransformProperties:
     Position: {x: 0, y: 0, z: 0}
-    Rotation: {x: 0, y: 0, z: 0, w: 0}
-    Scale: {x: 0, y: 0, z: 0}
-    IsValid: 0
+    Rotation: {x: 0, y: 0, z: 0, w: 1}
+    Scale: {x: 1, y: 1, z: 1}
+    IsValid: 1
   <IsNested>k__BackingField: 0
   WasActiveDuringEdit: 0
   WasActiveDuringEdit_Set1: 1
   <ComponentIndex>k__BackingField: 0
   <PredictedSpawn>k__BackingField: {fileID: 0}
   <PredictedOwner>k__BackingField: {fileID: 0}
-  NetworkBehaviours: []
+  NetworkBehaviours:
+  - {fileID: 7032708201564766795}
+  - {fileID: 3502371968633041447}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
   RuntimeParentNetworkBehaviour: {fileID: 0}
@@ -238,7 +240,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 1
   _defaultDespawnType: 0
-  _initializedTimestamp: 0
+  _initializedTimestamp: -8584080232033223798
 --- !u!114 &7032708201564766795
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -251,9 +253,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2836e36774ca1c4bbbee976e17b649c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Component.Transforming.NetworkTransform
-  _componentIndexCache: 255
+  _componentIndexCache: 0
   _addedNetworkObject: {fileID: 5715598844462006414}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 5715598844462006414}
   _componentConfiguration: 0
   _synchronizeParent: 0
   _packing:
@@ -312,7 +314,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Character.Actions.ActionController
   attackRange: 1.5
+  tackleRange: 2.2
+  strikeAngle: 60
   rayHeight: 1
+  passSpeed: 14
+  passLift: 2
+  passAssistAngle: 35
+  shootSpeed: 22
+  shootLift: 3
 --- !u!114 &2879660438343305244
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -337,9 +346,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b71fdbfd2b3446b7a1727bfce336492, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Character.Networking.CharacterNetworkController
-  _componentIndexCache: 255
+  _componentIndexCache: 1
   _addedNetworkObject: {fileID: 5715598844462006414}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 5715598844462006414}
 --- !u!114 &6202178690716778590
 MonoBehaviour:
   m_ObjectHideFlags: 0

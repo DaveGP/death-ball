@@ -6,6 +6,11 @@ namespace Character.Actions.Interfaces
 	public interface IActionController
 	{
 		/// <summary>
+		/// Gets whether the character is carrying the ball.
+		/// </summary>
+		public bool IsCarrying { get; }
+
+		/// <summary>
 		/// Sets whether the character is blocking.
 		/// </summary>
 		public void SetBlocking(bool blocking);
