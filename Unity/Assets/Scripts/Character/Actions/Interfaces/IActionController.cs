@@ -11,6 +11,11 @@ namespace Character.Actions.Interfaces
 		public bool IsCarrying { get; }
 
 		/// <summary>
+		/// Gets whether the character is blocking.
+		/// </summary>
+		public bool IsBlocking { get; }
+
+		/// <summary>
 		/// Sets whether the character is blocking.
 		/// </summary>
 		public void SetBlocking(bool blocking);

@@ -94,7 +94,7 @@ AI runs only on the server. Because it goes through the same motor code as human
   * **Sudden death** - from a draw at full time, the next goal wins.
   * **Knockout** - when every player on a team is knocked out, the other team wins straight away, in any phase.
 * Once `Ended`, every body's input is replaced with nothing, so everyone stops where they are. After the result banner (8 seconds) a new match starts: scores reset, everyone is revived and put back on their spawn points, and the ball kicks off.
-* **Knocked out** is a SyncVar on the body. A knocked-out body takes no input, can't pick up the ball (a carrier drops it), is ignored by AI targeting and teammate switching, and greys out. A human on a body that gets knocked out moves to a teammate still standing. Nothing knocks bodies out yet; combat (health and damage) will call `KnockOut()`.
+* **Knocked out** is a SyncVar on the body. A knocked-out body takes no input, can't pick up the ball (a carrier drops it), is ignored by AI targeting and teammate switching, and greys out. A human on a body that gets knocked out moves to a teammate still standing. Health reaching zero calls `KnockOut()`.
 * `Ball` (server-owned) - see below. Overcharge heat still to come.
 
 ## The Ball
@@ -114,3 +114,24 @@ AI runs only on the server. Because it goes through the same motor code as human
 * 1 point, 2 if thrown from behind the halfway line, +1 if the thrower caught a teammate's pass before it touched the ground. The ball keeps track of the last throw and whether the catch came off an air pass.
 * After a goal the ball is out of play for a few seconds, then everyone is teleported back to their spawn points and the ball kicks off again. A human's body is teleported on its owner's machine (`TargetRpc`), since the owner has authority over its transform, and `NetworkTransform.Teleport` makes everyone else snap instead of sliding.
 * **Shot assist** - a shot aimed within 30° of the goal is lofted to arrive at ring height. The aim still decides left and right, so shots can miss, and the AI adds a few degrees of random spread.
+
+## Combat
+
+* `CharacterHealth` (NetworkBehaviour on each body) holds health as a SyncVar (100 by default, in `CharacterStats`) and owns the rules for taking a `Hit`:
+  * A body that is dodging, or already down, isn't hit at all.
+  * Blocking lets through 30% of the damage and no stagger, unless the hit breaks blocks.
+  * Hitting a staggered body does ×1.5 damage.
+  * At zero health the body is knocked out; otherwise it is staggered for the hit's stagger time (a lighter hit never cuts a longer stagger short).
+* Melee moves are `Attack`s on the `ActionController` (hit, range, cooldown), all tunable in the inspector:
+
+| Move   | Damage | Stagger | Range | Cooldown | Notes |
+| ------ | ------ | ------- | ----- | -------- | ----- |
+| Light  | 10     | 0.25 s  | 1.5 m | 0.4 s    | |
+| Heavy  | 25     | 0.7 s   | 1.7 m | 1.2 s    | Breaks blocks |
+| Tackle | 8      | 0.8 s   | 2.2 m | 1.5 s    | Lunges forward; the carrier can still do it (a barge) |
+
+* A move hits the nearest opponent within range and 60° of facing. Only the server deals damage; the owning client runs the cooldown and the tackle lunge so it moves straight away.
+* A hit that lands (not blocked) on the carrier also strips the ball, as before.
+* **Ball hits** - a thrown ball moving faster than 16 m/s can't be caught by opponents: it hits them for 15 damage and 0.6 s stagger, bounces back off them, and can no longer score. Passes are slower, so they can still be intercepted; shots are fast, so they hurt anyone in the way.
+* Grey-box health bars float over each body, facing the camera.
+* No knockback yet, since a human's body position is owned by their client; it needs a message to the owner like the post-goal teleport.

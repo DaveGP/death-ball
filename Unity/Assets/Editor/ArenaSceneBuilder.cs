@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cameras;
 using Character.Actions;
+using Character.Health;
 using Character.Movement;
 using Character.Networking;
 using Character.Visuals;
@@ -137,6 +138,9 @@ namespace Builders
 			root.AddComponent<CharacterMotor>();
 			root.AddComponent<CharacterNetworkController>();
 
+			var health = root.AddComponent<CharacterHealth>();
+			SetSerializedReference(health, "stats", stats);
+
 			var material = CreateMaterial("Character", Color.grey);
 
 			var bodyVisual = CreateVisual(PrimitiveType.Capsule, "Body", root.transform, Vector3.up, new Vector3(0.8f, 1f, 0.8f), material);
@@ -147,11 +151,32 @@ namespace Builders
 			var teamColour = root.AddComponent<TeamColour>();
 			SetSerializedArray(teamColour, "renderers", new Object[] { bodyVisual, noseVisual });
 
+			CreateHealthBar(root.transform);
+
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
 
 			Object.DestroyImmediate(root);
 
 			return prefab;
+		}
+
+		private static void CreateHealthBar(Transform parent)
+		{
+			const float width = 1f;
+			const float height = 0.12f;
+
+			var bar = new GameObject("Health Bar").transform;
+			bar.SetParent(parent, false);
+			bar.localPosition = Vector3.up * 2.4f;
+
+			CreateVisual(PrimitiveType.Quad, "Background", bar, Vector3.zero, new Vector3(width + 0.06f, height + 0.06f, 1f), CreateMaterial("Health Bar Background", new Color(0.05f, 0.05f, 0.05f), unlit: true));
+
+			// Just in front of the background, towards the camera
+			var fill = CreateVisual(PrimitiveType.Quad, "Fill", bar, new Vector3(0f, 0f, -0.01f), new Vector3(width, height, 1f), CreateMaterial("Health Bar Fill", Color.white, unlit: true));
+
+			var healthBar = bar.gameObject.AddComponent<HealthBar>();
+			SetSerializedReference(healthBar, "fill", fill.transform);
+			SetSerializedReference(healthBar, "fillRenderer", fill);
 		}
 
 		private static GameObject CreateBallPrefab()
@@ -466,7 +491,7 @@ namespace Builders
 			return team;
 		}
 
-		private static Material CreateMaterial(string name, Color colour, float smoothness = 0.5f)
+		private static Material CreateMaterial(string name, Color colour, float smoothness = 0.5f, bool unlit = false)
 		{
 			EnsureFolder(MaterialsFolder);
 
@@ -476,7 +501,7 @@ namespace Builders
 
 			if (material == null)
 			{
-				material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+				material = new Material(Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit"));
 
 				AssetDatabase.CreateAsset(material, path);
 			}

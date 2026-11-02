@@ -1,3 +1,4 @@
+using Character.Health;
 using Character.Input;
 using Character.Input.Interfaces;
 using Character.Movement;
@@ -152,7 +153,11 @@ namespace Character.Networking
 		[Server]
 		public void Stagger(float seconds)
 		{
-			staggerEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+			var endTick = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+
+			// A lighter hit never cuts a longer stagger short
+			if (endTick > staggerEndTick.Value)
+				staggerEndTick.Value = endTick;
 		}
 
 		/// <summary>
@@ -176,6 +181,8 @@ namespace Character.Networking
 			knockedOut.Value = false;
 
 			staggerEndTick.Value = 0;
+
+			GetComponent<CharacterHealth>().Restore();
 		}
 
 		/// <summary>

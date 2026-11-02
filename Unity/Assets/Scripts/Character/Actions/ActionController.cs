@@ -1,4 +1,7 @@
+using Character.Health;
+using Character.Movement.Interfaces;
 using Character.Networking;
+using Data.Combat;
 using DependencyInjection;
 using Match;
 using UnityEngine;
@@ -10,17 +13,22 @@ namespace Character.Actions
 
 
 	/// <summary>
-	/// Ball handling and placeholder combat. Runs on the owning client and the server,
-	/// but only the server touches the ball, so clients just draw the debug rays.
+	/// Ball handling and melee. Runs on the owning client and the server, but only the
+	/// server touches the ball or deals damage; the owner just lunges and draws debug rays.
 	/// </summary>
 	public class ActionController : MonoBehaviour, IActionController
 	{
 		// Potentially move these out later
 		[SerializeField]
-		private float attackRange = 1.5f;
+		private Attack lightAttack = new(new Hit(10, 0.25f), 1.5f, 0.4f);
 
+		// Slow, but goes through a block
 		[SerializeField]
-		private float tackleRange = 2.2f;
+		private Attack heavyAttack = new(new Hit(25, 0.7f, true), 1.7f, 1.2f);
+
+		// A lunge that knocks the target off their feet. The carrier can still do this, as a barge.
+		[SerializeField]
+		private Attack tackle = new(new Hit(8, 0.8f), 2.2f, 1.5f);
 
 		// How far either side of facing a hit can land
 		[SerializeField]
@@ -54,6 +62,18 @@ namespace Character.Actions
 
 		private CharacterNetworkController body;
 
+		private IMovementController movementController;
+
+		private readonly Collider[] overlaps = new Collider[16];
+
+		private int characterMask;
+
+		private float nextLightAttackTime;
+
+		private float nextHeavyAttackTime;
+
+		private float nextTackleTime;
+
 		public bool IsBlocking { get; private set; }
 
 		public bool IsCarrying => TryGetBall(out var ball) && ball.Carrier == body;
@@ -62,8 +82,15 @@ namespace Character.Actions
 		{
 			body = GetComponent<CharacterNetworkController>();
 
+			movementController = GetComponent<IMovementController>();
+
+			characterMask = LayerMask.GetMask("Character");
+
 			if (body == null)
 				Debug.LogError($"{nameof(body)} is null");
+
+			if (movementController == null)
+				Debug.LogError($"{nameof(movementController)} is null");
 		}
 
 		public void SetBlocking(bool blocking)
@@ -74,29 +101,45 @@ namespace Character.Actions
 		// The carrier's hands are full, they can only pass, shoot or barge
 		public void OnAttack()
 		{
-			if (IsCarrying)
+			if (IsCarrying || !TryUse(lightAttack, ref nextLightAttackTime))
 				return;
 
-			DrawAction(transform.forward, attackRange, Color.red);
+			DrawAction(transform.forward, lightAttack.Range, Color.red);
 
-			Strike(attackRange);
+			Strike(lightAttack);
 		}
 
 		public void OnHeavyAttack()
 		{
-			if (IsCarrying)
+			if (IsCarrying || !TryUse(heavyAttack, ref nextHeavyAttackTime))
 				return;
 
-			DrawAction(transform.forward, attackRange, Color.magenta);
+			DrawAction(transform.forward, heavyAttack.Range, Color.magenta);
 
-			Strike(attackRange);
+			Strike(heavyAttack);
 		}
 
 		public void OnTackle()
 		{
-			DrawAction(transform.forward, tackleRange, Color.yellow);
+			if (!TryUse(tackle, ref nextTackleTime))
+				return;
 
-			Strike(tackleRange);
+			DrawAction(transform.forward, tackle.Range, Color.yellow);
+
+			// Runs on whichever machine moves this body, so the lunge happens there
+			movementController.Dodge(new Vector2(transform.forward.x, transform.forward.z));
+
+			Strike(tackle);
+		}
+
+		private static bool TryUse(Attack attack, ref float nextTime)
+		{
+			if (Time.time < nextTime)
+				return false;
+
+			nextTime = Time.time + attack.Cooldown;
+
+			return true;
 		}
 
 		public void OnPass(Vector3 direction)
@@ -142,7 +185,7 @@ namespace Character.Actions
 		}
 
 		public void OnSpecial()
-			=> DrawAction(transform.forward, attackRange, Color.white);
+			=> DrawAction(transform.forward, lightAttack.Range, Color.white);
 
 		private bool CanThrow(out Ball ball)
 		{
@@ -154,27 +197,62 @@ namespace Character.Actions
 			return false;
 		}
 
-		// Any hit on an opponent carrier in front knocks the ball loose
-		private void Strike(float range)
+		// Hits the nearest opponent in front. A hit that lands on the carrier knocks the ball loose.
+		private void Strike(Attack attack)
 		{
-			if (!body.IsServerInitialized || !TryGetBall(out var ball))
+			if (!body.IsServerInitialized)
 				return;
 
-			var carrier = ball.Carrier;
+			var target = FindTarget(attack.Range);
 
-			if (carrier == null || carrier.Team == body.Team)
+			if (target == null)
 				return;
 
-			var offset = carrier.transform.position - transform.position;
+			var result = target.GetComponent<CharacterHealth>().TakeHit(attack.Hit);
 
-			offset.y = 0f;
-
-			if (offset.magnitude > range || Vector3.Angle(transform.forward, offset) > strikeAngle)
+			if (result != HitResult.Landed || !TryGetBall(out var ball) || ball.Carrier != target)
 				return;
 
 			// The ball spills back towards whoever made the hit, and the carrier reels from it
-			if (ball.Strip(-offset))
-				carrier.Stagger(stripStagger);
+			if (ball.Strip(transform.position - target.transform.position))
+				target.Stagger(stripStagger);
+		}
+
+		private CharacterNetworkController FindTarget(float range)
+		{
+			var count = Physics.OverlapSphereNonAlloc(
+				transform.position + Vector3.up,
+				range,
+				overlaps,
+				characterMask,
+				QueryTriggerInteraction.Ignore);
+
+			CharacterNetworkController nearest = null;
+
+			var nearestDistance = float.MaxValue;
+
+			for (var i = 0; i < count; i++)
+			{
+				var target = overlaps[i].GetComponentInParent<CharacterNetworkController>();
+
+				if (target == null || target.Team == body.Team || target.IsKnockedOut)
+					continue;
+
+				var offset = target.transform.position - transform.position;
+
+				offset.y = 0f;
+
+				if (offset.magnitude > range || Vector3.Angle(transform.forward, offset) > strikeAngle)
+					continue;
+
+				if (offset.magnitude >= nearestDistance)
+					continue;
+
+				nearest = target;
+				nearestDistance = offset.magnitude;
+			}
+
+			return nearest;
 		}
 
 		// Aims at the teammate closest to the aim direction, leading them by their velocity

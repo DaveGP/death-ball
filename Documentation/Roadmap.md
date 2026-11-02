@@ -7,7 +7,7 @@
 * [x] Local couch multiplayer (one reader per device)
 * [x] Ball: pick up, carry, pass, shoot, loose-ball physics
 * [x] Goal rings and scoring
-* [ ] Basic melee, health and knockouts (knocked-out state and KO win are in; nothing deals damage yet)
+* [x] Basic melee, health and knockouts
 * [x] Both win conditions (points at time, full knockout), plus sudden death
 * [x] Teammate switching
 * [x] Simple AI filling every unused slot
@@ -16,7 +16,7 @@
 ## Development
 
 * [ ] Online multiplayer with mixed couch and online players
-* [ ] Stamina, blocking, dodging and specials
+* [ ] Stamina and specials (blocking and dodge invulnerability are in)
 * [ ] Player types
 * [ ] Ball overcharge
 * [ ] Team tactics AI

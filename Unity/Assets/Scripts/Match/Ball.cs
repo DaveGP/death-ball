@@ -1,4 +1,6 @@
+using Character.Health;
 using Character.Networking;
+using Data.Combat;
 using DependencyInjection;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
@@ -41,6 +43,17 @@ namespace Match
 
 		[SerializeField]
 		private Vector3 carryOffset = new(0f, 1.1f, 0.6f);
+
+		// Thrown faster than this, the ball hits opponents instead of being caught by them
+		[SerializeField]
+		private float hitSpeed = 16f;
+
+		[SerializeField]
+		private Hit ballHit = new(15, 0.6f);
+
+		// Share of its speed the ball keeps when it bounces off someone
+		[SerializeField]
+		private float deflectionBounce = 0.3f;
 
 		[SerializeField]
 		private float kickoffLaunchSpeed = 6f;
@@ -271,11 +284,25 @@ namespace Match
 
 			var nearestDistance = float.MaxValue;
 
+			var speed = rigidbody.linearVelocity.magnitude;
+
 			for (var i = 0; i < count; i++)
 			{
 				var body = overlaps[i].GetComponentInParent<CharacterNetworkController>();
 
-				if (body == null || !CanPickUp(body))
+				if (body == null)
+					continue;
+
+				// Too fast to catch: it hits them, or flies past if they dodged
+				if (IsHitBy(body, speed))
+				{
+					if (TryHit(body))
+						return;
+
+					continue;
+				}
+
+				if (!CanPickUp(body))
 					continue;
 
 				var distance = (body.transform.position - rigidbody.position).sqrMagnitude;
@@ -289,6 +316,27 @@ namespace Match
 
 			if (nearest != null)
 				SetCarrier(nearest);
+		}
+
+		private bool IsHitBy(CharacterNetworkController body, float speed)
+			=> speed >= hitSpeed
+			   && Thrower != null
+			   && body.Team != Thrower.Team
+			   && !body.IsKnockedOut;
+
+		// A shot that hits someone hurts them and bounces off, and can no longer score
+		private bool TryHit(CharacterNetworkController body)
+		{
+			if (body.GetComponent<CharacterHealth>().TakeHit(ballHit) == HitResult.Missed)
+				return false;
+
+			Thrower = null;
+
+			BlockPickup(body, fumbleRecoveryDelay);
+
+			rigidbody.linearVelocity = -rigidbody.linearVelocity * deflectionBounce + Vector3.up * 2f;
+
+			return true;
 		}
 
 		private bool CanPickUp(CharacterNetworkController body)
