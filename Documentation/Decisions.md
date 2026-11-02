@@ -43,3 +43,9 @@ A five-minute AI match now loses about half of all health, usually has one or tw
 02/11/2026 - Stamina is server authoritative like health; the owning client reads the synced value to gate sprinting and dodging, which can lag the server by one round trip online. Specials are ScriptableObject assets so player types can each get their own; until then everyone has Slam.
 
 Retuned pacing afterwards with AI matches and hit logs. With blocked hits draining 2 stamina per damage, slams at 20 damage and meters charging fully from damage dealt, slams did a third of all damage and a knockout win came at about 3.5 minutes. Halving block drain and special charging and dropping slam to 12 damage brought specials down to a few per match and matches back to full time, with knockouts landing late.
+
+## Player Types
+
+02/11/2026 - Each player type is a separate prefab with its own stats and special assets, rather than one prefab configured at runtime. FishNet's spawn already says which prefab it is, so clients know the type with nothing extra to sync, and each type can be tuned in the inspector.
+
+In the first AI matches the Runners were knocked out first every time: as the fastest players they reach the loose ball first and take every tackle. Runner health went from 150 to 170, Bruiser from 260 to 240, and AI carriers now dodge clear of a defender on top of them. Runners still go down earlier than the other types in AI play; that's worth checking with people playing.

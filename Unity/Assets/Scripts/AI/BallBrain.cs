@@ -37,10 +37,12 @@ namespace AI
 
 		private const float MarkCooldownMax = 4f;
 
-		// Within this range of the user the special is worth firing
-		private const float SpecialRange = 3f;
+		// A carrier dodges away from a defender this close, every so often
+		private const float DodgeRange = 2f;
 
-		private const int SpecialCrowd = 2;
+		private const float DodgeCooldownMin = 1.5f;
+
+		private const float DodgeCooldownMax = 3f;
 
 		// How far out from our ring the keeper stands
 		private const float KeeperDistance = 3f;
@@ -76,6 +78,8 @@ namespace AI
 
 		private bool inStrikeRange;
 
+		private float nextDodgeTime;
+
 		public BallBrain(CharacterNetworkController self, TeamController team, float laneX)
 		{
 			this.self = self;
@@ -97,7 +101,8 @@ namespace AI
 
 			var carrier = ball.Carrier;
 
-			if (ShouldUseSpecial(carrier))
+			// Each special knows when it's worth using
+			if (special.ShouldAIUse)
 				return new CharacterInput(Vector2.zero, Vector2.zero, CharacterAction.Special);
 
 			if (carrier == self)
@@ -120,26 +125,6 @@ namespace AI
 		}
 
 		private Transform OwnGoal => team.Opponents.AttackTarget;
-
-		// Saves it for a crowd, or for the opposing carrier
-		private bool ShouldUseSpecial(CharacterNetworkController carrier)
-		{
-			if (!special.IsReady)
-				return false;
-
-			if (carrier != null && carrier.Team != self.Team && Flat(carrier.transform.position - Position).magnitude <= SpecialRange)
-				return true;
-
-			var nearby = 0;
-
-			foreach (var opponent in team.Opponents.Bodies)
-			{
-				if (!opponent.IsKnockedOut && Flat(opponent.transform.position - Position).magnitude <= SpecialRange)
-					nearby++;
-			}
-
-			return nearby >= SpecialCrowd;
-		}
 
 		private bool IsNearestAI(Vector3 position)
 			=> team.NearestBodyTo(position, aiOnly: true) == self.transform;
@@ -190,6 +175,14 @@ namespace AI
 			var away = Flat(Position - threat.position).normalized;
 
 			var swerve = (direction + away * SwerveWeight).normalized;
+
+			// Right on top of us: dodge clear, which also slips the hit
+			if (Flat(threat.position - Position).magnitude <= DodgeRange && Time.time >= nextDodgeTime)
+			{
+				nextDodgeTime = Time.time + Random.Range(DodgeCooldownMin, DodgeCooldownMax);
+
+				return new CharacterInput(swerve, swerve, CharacterAction.Dodge);
+			}
 
 			return new CharacterInput(swerve, swerve, CharacterAction.Sprint);
 		}

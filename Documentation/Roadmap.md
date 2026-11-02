@@ -17,7 +17,7 @@
 
 * [ ] Online multiplayer with mixed couch and online players
 * [x] Stamina and specials (one shared special, Slam, until player types)
-* [ ] Player types
+* [x] Player types, each with its own special
 * [ ] Ball overcharge
 * [ ] Team tactics AI
 * [ ] Arena hazards and more arenas

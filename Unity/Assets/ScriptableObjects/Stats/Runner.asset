@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 979d48304d01242c399abb431ae38402, type: 3}
+  m_Name: Runner
+  m_EditorClassIdentifier: Assembly-CSharp::Data.ScriptableObjects.CharacterStats
+  WalkSpeed: 2.8
+  RunSpeed: 6.2
+  SprintSpeed: 9
+  CarrySpeedMultiplier: 0.85
+  HasteSpeedMultiplier: 1.35
+  FortifyCounterStagger: 0.8
+  MeleeDamageMultiplier: 0.85
+  ThrowSpeedMultiplier: 1
+  Acceleration: 40
+  TurnSpeed: 720
+  DodgeSpeed: 12
+  DodgeDuration: 0.2
+  DodgeCooldown: 0.6
+  MaxHealth: 170
+  BlockedDamageMultiplier: 0.1
+  StaggeredDamageMultiplier: 1.5
+  MaxStamina: 130
+  StaminaRegen: 32
+  StaminaRegenDelay: 0.8
+  SprintStaminaPerSecond: 15
+  DodgeStaminaCost: 15
+  HeavyAttackStaminaCost: 20
+  TackleStaminaCost: 15
+  BlockStaminaPerDamage: 1
+  SpecialMeterMax: 100
+  SpecialChargePerDamageDealt: 0.5
+  SpecialChargePerDamageTaken: 0.4

@@ -58,6 +58,11 @@ namespace Character.Networking
 
 		private readonly SyncVar<bool> knockedOut = new();
 
+		// Timed effects from specials, in ticks like the stagger
+		private readonly SyncVar<uint> hasteEndTick = new();
+
+		private readonly SyncVar<uint> fortifyEndTick = new();
+
 		public TeamSide Team => team.Value;
 
 		public bool IsHumanControlled => localPlayerIndex.Value != NoLocalPlayer;
@@ -65,6 +70,10 @@ namespace Character.Networking
 		public int LocalPlayerIndex => localPlayerIndex.Value;
 
 		public bool IsStaggered => IsSpawned && TimeManager.Tick < staggerEndTick.Value;
+
+		public bool IsHasted => IsSpawned && TimeManager.Tick < hasteEndTick.Value;
+
+		public bool IsFortified => IsSpawned && TimeManager.Tick < fortifyEndTick.Value;
 
 		// Out for the rest of the match
 		public bool IsKnockedOut => knockedOut.Value;
@@ -163,6 +172,24 @@ namespace Character.Networking
 		}
 
 		/// <summary>
+		/// Faster movement and free sprinting for a while.
+		/// </summary>
+		[Server]
+		public void Haste(float seconds)
+		{
+			hasteEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+		}
+
+		/// <summary>
+		/// An unbreakable guard for a while: blocked hits do nothing and stagger the attacker.
+		/// </summary>
+		[Server]
+		public void Fortify(float seconds)
+		{
+			fortifyEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+		}
+
+		/// <summary>
 		/// Puts the body down for the rest of the match. It drops the ball, and a human
 		/// controlling it moves to a teammate who is still standing.
 		/// </summary>
@@ -183,6 +210,8 @@ namespace Character.Networking
 			knockedOut.Value = false;
 
 			staggerEndTick.Value = 0;
+			hasteEndTick.Value = 0;
+			fortifyEndTick.Value = 0;
 
 			GetComponent<CharacterHealth>().Restore();
 

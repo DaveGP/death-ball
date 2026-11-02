@@ -22,8 +22,9 @@ namespace Match
 		[SerializeField]
 		private TeamSide side;
 
+		// One player type prefab per spawn point, in the same order
 		[SerializeField]
-		private NetworkObject characterPrefab;
+		private NetworkObject[] lineup;
 
 		[SerializeField]
 		private Transform[] spawnPoints;
@@ -53,10 +54,12 @@ namespace Match
 
 		public void SpawnBodies(NetworkManager networkManager)
 		{
-			foreach (var spawnPoint in spawnPoints)
+			for (var i = 0; i < spawnPoints.Length; i++)
 			{
+				var spawnPoint = spawnPoints[i];
+
 				var instance = networkManager.GetPooledInstantiated(
-					characterPrefab,
+					lineup[i % lineup.Length],
 					spawnPoint.position,
 					spawnPoint.rotation,
 					true);

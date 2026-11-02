@@ -10,8 +10,8 @@ using UnityEngine;
 namespace Character.Specials
 {
 	/// <summary>
-	/// Slams the ground, hitting every opponent nearby through their guard and knocking
-	/// the ball out of a carrier's hands.
+	/// The Bruiser's special. Slams the ground, hitting every opponent nearby through their
+	/// guard and knocking the ball out of a carrier's hands.
 	/// </summary>
 	[CreateAssetMenu(fileName = "Slam", menuName = "ScriptableObjects/Specials/Slam")]
 	public class SlamSpecial : SpecialMove
@@ -20,11 +20,12 @@ namespace Character.Specials
 
 		public Hit Hit = new(12, 1f, true);
 
-		public Color EffectColour = new(1f, 0.6f, 0.1f);
+		// The AI saves it for a crowd, or for the opposing carrier
+		public int AICrowd = 2;
 
 		private readonly Collider[] overlaps = new Collider[16];
 
-		public override void Perform(CharacterNetworkController user)
+		public override bool Perform(CharacterNetworkController user)
 		{
 			var count = Physics.OverlapSphereNonAlloc(
 				user.transform.position + Vector3.up,
@@ -49,6 +50,15 @@ namespace Character.Specials
 				if (result == HitResult.Landed && ball != null && ball.Carrier == target)
 					ball.Strip(target.transform.position - user.transform.position);
 			}
+
+			return true;
+		}
+
+		public override bool ShouldAIUse(CharacterNetworkController user)
+		{
+			var range = Radius - 0.5f;
+
+			return IsOpponentCarrierWithin(user, range) || OpponentsWithin(user, range) >= AICrowd;
 		}
 
 		public override void PlayEffect(Vector3 position)

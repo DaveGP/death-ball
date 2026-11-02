@@ -86,6 +86,10 @@ namespace Character.Actions
 
 		public bool IsBlocking { get; private set; }
 
+		private float PassSpeed => passSpeed * stats.ThrowSpeedMultiplier;
+
+		private float ShootSpeed => shootSpeed * stats.ThrowSpeedMultiplier;
+
 		public bool IsCarrying => TryGetBall(out var ball) && ball.Carrier == body;
 
 		private void Awake()
@@ -171,7 +175,7 @@ namespace Character.Actions
 
 			DrawAction(aim, 10f, Color.cyan);
 
-			ball.Throw(body, aim * passSpeed + Vector3.up * passLift);
+			ball.Throw(body, aim * PassSpeed + Vector3.up * passLift);
 		}
 
 		public void OnShoot(Vector3 direction)
@@ -188,7 +192,7 @@ namespace Character.Actions
 		// still decides left and right, so shots can miss.
 		private Vector3 ShotVelocity(Ball ball, Vector3 direction)
 		{
-			var velocity = direction * shootSpeed + Vector3.up * shootLift;
+			var velocity = direction * ShootSpeed + Vector3.up * shootLift;
 
 			var toGoal = body.TeamController.AttackTarget.position - ball.HoldPosition(body);
 
@@ -197,7 +201,7 @@ namespace Character.Actions
 			if (Vector3.Angle(direction, flat) > shotAssistAngle)
 				return velocity;
 
-			var time = flat.magnitude / shootSpeed;
+			var time = flat.magnitude / ShootSpeed;
 
 			velocity.y = (toGoal.y - 0.5f * Physics.gravity.y * time * time) / time;
 
@@ -231,7 +235,10 @@ namespace Character.Actions
 			if (target == null)
 				return;
 
-			var result = target.GetComponent<CharacterHealth>().TakeHit(attack.Hit, body);
+			var hit = attack.Hit;
+			hit.Damage = Mathf.RoundToInt(hit.Damage * stats.MeleeDamageMultiplier);
+
+			var result = target.GetComponent<CharacterHealth>().TakeHit(hit, body);
 
 			if (result != HitResult.Landed || !TryGetBall(out var ball) || ball.Carrier != target)
 				return;
@@ -308,7 +315,7 @@ namespace Character.Actions
 
 			var distance = Vector3.Distance(target.transform.position, transform.position);
 
-			var lead = target.transform.position + target.Velocity * (distance / passSpeed) - transform.position;
+			var lead = target.transform.position + target.Velocity * (distance / PassSpeed) - transform.position;
 
 			lead.y = 0f;
 

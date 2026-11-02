@@ -43,6 +43,8 @@ namespace Character.Movement
 
 		private bool isCarrying;
 
+		private bool isHasted;
+
 
 		private void Awake()
 		{
@@ -68,6 +70,11 @@ namespace Character.Movement
 		public void SetCarrying(bool carrying)
 		{
 			isCarrying = carrying;
+		}
+
+		public void SetHasted(bool hasted)
+		{
+			isHasted = hasted;
 		}
 
 		public void Move(Vector2 direction)
@@ -100,7 +107,13 @@ namespace Character.Movement
 				_ => 0
 			};
 
-			return isCarrying ? speed * stats.CarrySpeedMultiplier : speed;
+			if (isCarrying)
+				speed *= stats.CarrySpeedMultiplier;
+
+			if (isHasted)
+				speed *= stats.HasteSpeedMultiplier;
+
+			return speed;
 		}
 
 		public void Face(Vector2 direction)

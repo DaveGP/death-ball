@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Cameras;
 using Character.Actions;
 using Character.Health;
@@ -35,7 +36,7 @@ namespace Builders
 	{
 		private const string ScenePath = "Assets/Scenes/Arena.unity";
 
-		private const string PrefabPath = "Assets/Prefabs/Character.prefab";
+		private const string CharacterPrefabsFolder = "Assets/Prefabs/Characters";
 
 		private const string BallPrefabPath = "Assets/Prefabs/Ball.prefab";
 
@@ -57,7 +58,9 @@ namespace Builders
 
 		private const string StatsPath = "Assets/ScriptableObjects/DefaultCharacterStats.asset";
 
-		private const string SlamPath = "Assets/ScriptableObjects/Specials/Slam.asset";
+		private const string TypeStatsFolder = "Assets/ScriptableObjects/Stats";
+
+		private const string SpecialsFolder = "Assets/ScriptableObjects/Specials";
 
 		private const string MaterialsFolder = "Assets/Materials";
 
@@ -76,9 +79,12 @@ namespace Builders
 			EnsureLayer("Character");
 			EnsureLayer("Ball");
 
-			var stats = CreateStats();
+			var defaultStats = CreateStats();
 
-			var prefab = CreateCharacterPrefab(stats);
+			var lineup = new List<GameObject>();
+
+			foreach (var playerType in PlayerTypes)
+				lineup.Add(CreateCharacterPrefab(playerType, CreateTypeStats(playerType, defaultStats)));
 
 			var ballPrefab = CreateBallPrefab();
 
@@ -87,7 +93,7 @@ namespace Builders
 			// Rebuilt prefabs lose their FishNet asset path hash until the collection is refreshed
 			EditorApplication.ExecuteMenuItem("Tools/Fish-Networking/Utility/Refresh Default Prefabs");
 
-			CreateScene(prefab, ballPrefab, matchStatePrefab);
+			CreateScene(lineup, ballPrefab, matchStatePrefab);
 
 			AssetDatabase.SaveAssets();
 
@@ -110,11 +116,33 @@ namespace Builders
 			return stats;
 		}
 
-		private static GameObject CreateCharacterPrefab(CharacterStats stats)
+		// Each type's stats start as a copy of the defaults with the type's changes, made once
+		// and then left alone, so they can be tuned in the inspector
+		private static CharacterStats CreateTypeStats(PlayerTypeSpec playerType, CharacterStats defaultStats)
 		{
-			EnsureFolder("Assets/Prefabs");
+			EnsureFolder(TypeStatsFolder);
 
-			var root = new GameObject("Character")
+			var path = $"{TypeStatsFolder}/{playerType.Name}.asset";
+
+			var stats = AssetDatabase.LoadAssetAtPath<CharacterStats>(path);
+
+			if (stats != null)
+				return stats;
+
+			stats = Object.Instantiate(defaultStats);
+
+			playerType.TuneStats(stats);
+
+			AssetDatabase.CreateAsset(stats, path);
+
+			return stats;
+		}
+
+		private static GameObject CreateCharacterPrefab(PlayerTypeSpec playerType, CharacterStats stats)
+		{
+			EnsureFolder(CharacterPrefabsFolder);
+
+			var root = new GameObject(playerType.Name)
 			{
 				layer = LayerMask.NameToLayer("Character")
 			};
@@ -150,21 +178,27 @@ namespace Builders
 
 			var special = root.AddComponent<CharacterSpecial>();
 			SetSerializedReference(special, "stats", stats);
-			SetSerializedReference(special, "move", CreateSlamSpecial());
+			SetSerializedReference(special, "move", playerType.CreateSpecial());
 
 			var material = CreateMaterial("Character", Color.grey);
 
-			var bodyVisual = CreateVisual(PrimitiveType.Capsule, "Body", root.transform, Vector3.up, new Vector3(0.8f, 1f, 0.8f), material);
+			var visuals = new List<Object>
+			{
+				CreateVisual(PrimitiveType.Capsule, "Body", root.transform, Vector3.up, playerType.BodyScale, material),
 
-			// Shows which way the body is facing
-			var noseVisual = CreateVisual(PrimitiveType.Cube, "Facing", root.transform, new Vector3(0f, 1.5f, 0.4f), new Vector3(0.3f, 0.2f, 0.3f), material);
+				// Shows which way the body is facing
+				CreateVisual(PrimitiveType.Cube, "Facing", root.transform, new Vector3(0f, 1.5f, playerType.BodyScale.z / 2f), new Vector3(0.3f, 0.2f, 0.3f), material)
+			};
+
+			if (playerType.Shield)
+				visuals.Add(CreateVisual(PrimitiveType.Cube, "Shield", root.transform, new Vector3(0f, 1.05f, playerType.BodyScale.z / 2f + 0.08f), new Vector3(0.75f, 0.9f, 0.1f), material));
 
 			var teamColour = root.AddComponent<TeamColour>();
-			SetSerializedArray(teamColour, "renderers", new Object[] { bodyVisual, noseVisual });
+			SetSerializedArray(teamColour, "renderers", visuals.ToArray());
 
 			CreateStatusBars(root.transform);
 
-			var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+			var prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{CharacterPrefabsFolder}/{playerType.Name}.prefab");
 
 			Object.DestroyImmediate(root);
 
@@ -218,22 +252,104 @@ namespace Builders
 			serializedBars.ApplyModifiedPropertiesWithoutUndo();
 		}
 
-		private static SpecialMove CreateSlamSpecial()
+		// Made once, then left alone for tuning
+		private static SpecialMove CreateSpecial<T>(string name, Color effectColour, float effectRadius) where T : SpecialMove
 		{
-			EnsureFolder("Assets/ScriptableObjects/Specials");
+			EnsureFolder(SpecialsFolder);
 
-			var slam = AssetDatabase.LoadAssetAtPath<SlamSpecial>(SlamPath);
+			var path = $"{SpecialsFolder}/{name.Replace(" ", "")}.asset";
 
-			if (slam != null)
-				return slam;
+			var special = AssetDatabase.LoadAssetAtPath<T>(path);
 
-			slam = ScriptableObject.CreateInstance<SlamSpecial>();
-			slam.DisplayName = "Slam";
+			if (special != null)
+				return special;
 
-			AssetDatabase.CreateAsset(slam, SlamPath);
+			special = ScriptableObject.CreateInstance<T>();
+			special.DisplayName = name;
+			special.EffectColour = effectColour;
+			special.EffectRadius = effectRadius;
 
-			return slam;
+			AssetDatabase.CreateAsset(special, path);
+
+			return special;
 		}
+
+		private sealed class PlayerTypeSpec
+		{
+			public string Name;
+
+			public System.Action<CharacterStats> TuneStats;
+
+			public System.Func<SpecialMove> CreateSpecial;
+
+			public Vector3 BodyScale;
+
+			public bool Shield;
+		}
+
+		// One of each per team, in spawn point order from left to right
+		private static readonly PlayerTypeSpec[] PlayerTypes =
+		{
+			new()
+			{
+				Name = "Bruiser",
+				BodyScale = new Vector3(1f, 1.05f, 1f),
+				CreateSpecial = () => CreateSpecial<SlamSpecial>("Slam", new Color(1f, 0.6f, 0.1f), 3.5f),
+				TuneStats = stats =>
+				{
+					stats.MaxHealth = 240;
+					stats.RunSpeed = 4.8f;
+					stats.SprintSpeed = 7f;
+					stats.MaxStamina = 80f;
+					stats.MeleeDamageMultiplier = 1.3f;
+					stats.ThrowSpeedMultiplier = 0.9f;
+				}
+			},
+			new()
+			{
+				Name = "Runner",
+				BodyScale = new Vector3(0.6f, 1.05f, 0.6f),
+				CreateSpecial = () => CreateSpecial<SecondWindSpecial>("Second Wind", new Color(0.3f, 1f, 0.4f), 1.5f),
+				TuneStats = stats =>
+				{
+					stats.MaxHealth = 170;
+					stats.WalkSpeed = 2.8f;
+					stats.RunSpeed = 6.2f;
+					stats.SprintSpeed = 9f;
+					stats.MaxStamina = 130f;
+					stats.StaminaRegen = 32f;
+					stats.DodgeStaminaCost = 15f;
+					stats.MeleeDamageMultiplier = 0.85f;
+				}
+			},
+			new()
+			{
+				Name = "Thrower",
+				BodyScale = new Vector3(0.75f, 1f, 0.75f),
+				CreateSpecial = () => CreateSpecial<RocketSpecial>("Rocket", new Color(1f, 0.25f, 0.2f), 1.5f),
+				TuneStats = stats =>
+				{
+					stats.MaxHealth = 180;
+					stats.ThrowSpeedMultiplier = 1.2f;
+					stats.MeleeDamageMultiplier = 0.8f;
+				}
+			},
+			new()
+			{
+				Name = "Enforcer",
+				BodyScale = new Vector3(0.85f, 1f, 0.85f),
+				Shield = true,
+				CreateSpecial = () => CreateSpecial<IronWallSpecial>("Iron Wall", new Color(0.6f, 0.8f, 1f), 1.8f),
+				TuneStats = stats =>
+				{
+					stats.MaxHealth = 220;
+					stats.RunSpeed = 5.2f;
+					stats.SprintSpeed = 7.6f;
+					stats.BlockedDamageMultiplier = 0.05f;
+					stats.BlockStaminaPerDamage = 0.6f;
+				}
+			},
+		};
 
 		private static GameObject CreateBallPrefab()
 		{
@@ -316,7 +432,7 @@ namespace Builders
 			return renderer;
 		}
 
-		private static void CreateScene(GameObject characterPrefab, GameObject ballPrefab, GameObject matchStatePrefab)
+		private static void CreateScene(List<GameObject> lineup, GameObject ballPrefab, GameObject matchStatePrefab)
 		{
 			EnsureFolder("Assets/Scenes");
 
@@ -333,8 +449,8 @@ namespace Builders
 			// FishNet keeps this collection up to date with every NetworkObject prefab in the project
 			SetSerializedReference(networkManager, "_spawnablePrefabs", AssetDatabase.LoadAssetAtPath<DefaultPrefabObjects>(DefaultPrefabObjectsPath));
 
-			var home = CreateTeam(TeamSide.Home, characterPrefab, -1f);
-			var away = CreateTeam(TeamSide.Away, characterPrefab, 1f);
+			var home = CreateTeam(TeamSide.Home, lineup, -1f);
+			var away = CreateTeam(TeamSide.Away, lineup, 1f);
 			SetSerializedReference(home, "opponents", away);
 			SetSerializedReference(away, "opponents", home);
 
@@ -516,7 +632,7 @@ namespace Builders
 		}
 
 		// Side is -1 for the home end of the arena and 1 for the away end
-		private static TeamController CreateTeam(TeamSide side, GameObject characterPrefab, float end)
+		private static TeamController CreateTeam(TeamSide side, List<GameObject> lineup, float end)
 		{
 			var teamObject = new GameObject($"Team {side}");
 
@@ -539,8 +655,9 @@ namespace Builders
 
 			var serializedTeam = new SerializedObject(team);
 			serializedTeam.FindProperty("side").enumValueIndex = (int)side;
-			serializedTeam.FindProperty("characterPrefab").objectReferenceValue = characterPrefab.GetComponent<NetworkObject>();
 			serializedTeam.ApplyModifiedPropertiesWithoutUndo();
+
+			SetSerializedArray(team, "lineup", lineup.Select(prefab => (Object)prefab.GetComponent<NetworkObject>()).ToArray());
 
 			SetSerializedArray(team, "spawnPoints", spawnPoints.ToArray());
 

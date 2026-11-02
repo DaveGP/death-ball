@@ -1,4 +1,5 @@
 using Character.Actions.Interfaces;
+using Character.Networking;
 using Character.Stamina;
 using Data.ScriptableObjects;
 using Data.Enums;
@@ -25,6 +26,8 @@ namespace Character.Movement
 
 		private CharacterStats stats;
 
+		private CharacterNetworkController body;
+
 		private void Awake()
 		{
 			movementController = GetComponent<IMovementController>();
@@ -32,6 +35,8 @@ namespace Character.Movement
 			actionController = GetComponent<IActionController>();
 
 			stamina = GetComponent<CharacterStamina>();
+
+			body = GetComponent<CharacterNetworkController>();
 
 			stats = GetComponent<MovementController>().Stats;
 
@@ -60,6 +65,8 @@ namespace Character.Movement
 
 			movementController.SetCarrying(actionController.IsCarrying);
 
+			movementController.SetHasted(body.IsHasted);
+
 			movementController.Move(Vector2.ClampMagnitude(characterInput.Move, 1f));
 		}
 
@@ -79,7 +86,8 @@ namespace Character.Movement
 
 			movementController.SetGait(gait);
 
-			if (gait == CharacterGait.Sprint && stamina.IsServerInitialized)
+			// Sprinting is free while hasted
+			if (gait == CharacterGait.Sprint && !body.IsHasted && stamina.IsServerInitialized)
 				stamina.Drain(stats.SprintStaminaPerSecond * Time.fixedDeltaTime);
 		}
 

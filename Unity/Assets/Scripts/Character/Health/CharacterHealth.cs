@@ -81,6 +81,15 @@ namespace Character.Health
 			if (body.IsKnockedOut || movementState.IsDodging)
 				return HitResult.Missed;
 
+			// Iron Wall: nothing gets through the guard, and hitting it rebounds on the attacker
+			if (body.IsFortified && actionController.IsBlocking)
+			{
+				if (attacker != null)
+					attacker.Stagger(stats.FortifyCounterStagger);
+
+				return HitResult.Blocked;
+			}
+
 			var damage = (float)hit.Damage;
 
 			var stagger = hit.Stagger;

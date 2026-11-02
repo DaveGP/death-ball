@@ -31,5 +31,10 @@ namespace Character.Movement.Interfaces
 		/// Sets whether the character is slowed by carrying the ball.
 		/// </summary>
 		public void SetCarrying(bool carrying);
+
+		/// <summary>
+		/// Sets whether the character is sped up by a special.
+		/// </summary>
+		public void SetHasted(bool hasted);
 	}
 }

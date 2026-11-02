@@ -13,6 +13,18 @@ namespace Data.ScriptableObjects
 
 		public float CarrySpeedMultiplier = 0.85f;
 
+		// While hasted by a special
+		public float HasteSpeedMultiplier = 1.35f;
+
+		// How long an attacker reels after hitting a fortified guard
+		public float FortifyCounterStagger = 0.8f;
+
+		// Scales the damage of light and heavy attacks and tackles
+		public float MeleeDamageMultiplier = 1f;
+
+		// Scales pass and shot speed
+		public float ThrowSpeedMultiplier = 1f;
+
 		public float Acceleration = 40f;
 
 		public float TurnSpeed = 720f;

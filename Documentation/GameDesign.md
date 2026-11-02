@@ -60,14 +60,16 @@ A match is won by whichever happens first:
 
 ## Player Types
 
-Each player has a type that sets their stats and special move:
+Each player has a type that sets their stats and special move. A team fields one of each.
 
-| Type     | Strengths                   | Weaknesses        |
-| -------- | --------------------------- | ----------------- |
-| Bruiser  | Health, hitting power       | Speed, stamina    |
-| Runner   | Speed, stamina, dodging     | Health            |
-| Thrower  | Throw accuracy and range    | Melee             |
-| Enforcer | Balanced, stronger blocking | No standout trait |
+| Type     | Strengths                                   | Weaknesses                 | Special |
+| -------- | ------------------------------------------- | -------------------------- | ------- |
+| Bruiser  | 240 health, hits 30% harder                 | Slower, less stamina       | **Slam** - shockwave hitting every opponent nearby through their guard, knocking the ball loose |
+| Runner   | Fastest, most stamina, cheap dodges         | 170 health, weaker hits    | **Second Wind** - full stamina and 5 s of extra speed with free sprinting |
+| Thrower  | Passes and shots 20% faster                 | Weaker in melee            | **Rocket** - a perfectly aimed, very fast shot at the ring (needs the ball) |
+| Enforcer | 220 health, blocks let through less and cost less stamina | No standout trait | **Iron Wall** - 5 s where blocked hits do nothing and stagger the attacker |
+
+A Thrower's passes are fast enough that opponents in the way get hit rather than intercepting them.
 
 ## Arenas
 

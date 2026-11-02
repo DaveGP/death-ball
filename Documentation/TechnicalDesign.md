@@ -65,7 +65,7 @@ Two layers, so AI produces exactly the same input as a human:
 * **Team tactics** (`TeamBrain`): assigns a role to each AI body every few ticks, such as chase the ball, carry, support, mark a player, guard the ring.
 * **Per-body brain** (`IAIBrain`): turns its role into a `CharacterInput` each tick (move direction, aim, action flags). For now `BallBrain` does both jobs:
   * The AI nearest a loose ball goes for it.
-  * The carrier runs at goal and shoots in range (with a few degrees of spread), passing to an open teammate or swerving when pressed.
+  * The carrier runs at goal and shoots in range (with a few degrees of spread), passing to an open teammate or swerving when pressed, and dodging clear of a defender right on top of it.
   * When the other team has the ball, the AI nearest the carrier hunts them with tackles, the AI nearest our ring keeps goal (stands between carrier and ring with guard up, so shots deflect off it), and the rest mark: shadow an opponent from 2.5 m with guard up, closing in for a swing every 2.5-4 s.
   * When our team has the ball, the rest support in their lane, guarding when an opponent is within 3 m and hitting back if one gets in reach.
   * Every swing waits a random beat once in range, so two AIs never attack on the same tick.
@@ -150,5 +150,14 @@ AI runs only on the server. Because it goes through the same motor code as human
 
 * `CharacterSpecial` (NetworkBehaviour) holds the special meter as a SyncVar. The server charges it by 0.5 per point of damage dealt and 0.4 per point taken; a special's own damage doesn't charge it, so specials can't chain.
 * Pressing Special with a full meter performs the body's `SpecialMove`, a ScriptableObject asset, so player types can each have their own. The move runs on the server and its effect plays on every machine through an `ObserversRpc`.
-* For now everyone has **Slam**: every opponent within 3.5 m takes 12 damage and a 1 s stagger through their guard, and a carrier hit by it drops the ball. Grey-box effect: an expanding orange disc.
-* The AI fires its special when it's ready and the opposing carrier, or at least two opponents, are within 3 m.
+* A move can refuse to fire (Rocket without the ball), in which case the meter is kept. Each move also decides when the AI should use it (`ShouldAIUse`).
+* Grey-box effect for every special: an expanding disc in the move's colour.
+
+## Player Types
+
+* Each type is its own prefab (`Assets/Prefabs/Characters`), with its own `CharacterStats` asset (`Assets/ScriptableObjects/Stats`) and `SpecialMove` asset (`Assets/ScriptableObjects/Specials`). The network spawn carries the prefab, so every machine knows the type without syncing anything extra.
+* `TeamController` spawns a lineup of prefabs, one per spawn point: Bruiser, Runner, Thrower, Enforcer.
+* Stats added for types: `MeleeDamageMultiplier`, `ThrowSpeedMultiplier`, `HasteSpeedMultiplier`, `FortifyCounterStagger`.
+* Specials can put timed effects on a body, synced as end ticks like the stagger: **haste** (faster movement, free sprinting) and **fortify** (unbreakable guard).
+* The builder makes each type's stats asset once, from the defaults plus the type's changes, then leaves it alone so it can be tuned in the inspector. The same goes for special assets.
+* Silhouettes tell the types apart until there are models: a wide Bruiser, a slim Runner, and an Enforcer carrying a shield plate.

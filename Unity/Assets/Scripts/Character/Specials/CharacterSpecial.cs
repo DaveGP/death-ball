@@ -29,6 +29,9 @@ namespace Character.Specials
 
 		public SpecialMove Move => move;
 
+		// Server only
+		public bool ShouldAIUse => IsReady && move.ShouldAIUse(body);
+
 		private void Awake()
 		{
 			body = GetComponent<CharacterNetworkController>();
@@ -55,12 +58,10 @@ namespace Character.Specials
 		[Server]
 		public bool TryUse()
 		{
-			if (!IsReady)
+			if (!IsReady || !move.Perform(body))
 				return false;
 
 			meter.Value = 0f;
-
-			move.Perform(body);
 
 			PlayEffect(transform.position);
 
