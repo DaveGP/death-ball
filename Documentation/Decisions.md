@@ -1,0 +1,19 @@
+# Decisions
+
+This document is to track decisions and the reasoning behind them throughout the project.
+
+## Unity
+
+02/11/2026 - Unity 6 was chosen to match the team's other projects, so tooling, packages and code from Crewfall can be reused.
+
+## FishNet
+
+02/11/2026 - FishNet was chosen for networking for the same reasons as on Crewfall, and because the Crewfall character controller is already built on it. Single-player and couch play run as host, so offline and online share one code path.
+
+## Character Controller
+
+02/11/2026 - The character controller follows Crewfall's input pipeline (reader → provider → input source → network controller → motor). Every character has an input source assigned and swapped at runtime instead of fetched from the ServiceLocator, so any of the 8 players can be a local, couch, online or AI player.
+
+## Synty
+
+02/11/2026 - As on Crewfall, Synty asset packs stay in an ignored local folder to keep the repository within LFS storage limits.

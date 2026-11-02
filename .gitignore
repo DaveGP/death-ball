@@ -1,0 +1,106 @@
+# Temporary files
+Unity/.utmp/
+
+# Unity folders to ignore
+Unity/[Ll]ibrary/
+Unity/[Tt]emp/
+Unity/[Oo]bj/
+Unity/[Bb]uild/
+Unity/[Bb]builds/
+Unity/[Ll]ogs/
+Unity/[Uu]ser[Ss]ettings/
+Unity/*.log
+
+# Blender backup files
+Unity/*.blend1
+Unity/*.blend1.meta
+
+# Memory captures (large, sensitive)
+Unity/[Mm]emoryCaptures/
+
+# Recordings (large)
+Unity/[Rr]ecordings/
+
+# Uncomment to ignore Asset Store tools plugin if needed
+# Unity/[Aa]ssets/AssetStoreTools*
+
+# JetBrains Rider plugin and settings
+Unity/[Aa]ssets/Plugins/Editor/JetBrains*
+Unity/*.DotSettings.user
+
+# Visual Studio cache directory
+.vs/
+
+# Gradle cache directory
+.gradle/
+
+# Auto-generated VS/MD/Consulo files
+Unity/ExportedObj/
+Unity/.consulo/
+Unity/*.csproj
+Unity/*.unityproj
+Unity/*.sln
+Unity/*.suo
+Unity/*.tmp
+Unity/*.user
+Unity/*.userprefs
+Unity/*.pidb
+Unity/*.booproj
+Unity/*.svd
+Unity/*.pdb
+Unity/*.mdb
+Unity/*.opendb
+Unity/*.VC.db
+
+# Unity generated meta files
+Unity/*.pidb.meta
+Unity/*.pdb.meta
+Unity/*.mdb.meta
+
+# Crash reports
+Unity/sysinfo.txt
+
+# Mono crash reports
+Unity/mono_crash.*
+
+# Build outputs
+Unity/*.apk
+Unity/*.aab
+Unity/*.unitypackage
+Unity/*.unitypackage.meta
+Unity/*.app
+
+# Crashlytics build file
+Unity/crashlytics-build.properties
+
+# TestRunner generated scenes
+Unity/InitTestScene*.unity*
+
+# Addressables ignores
+Unity/ServerData
+Unity/[Aa]ssets/StreamingAssets/aa*
+Unity/[Aa]ssets/AddressableAssetsData/link.xml*
+Unity/[Aa]ssets/Addressables_Temp*
+Unity/[Aa]ssets/AddressableAssetsData/*/*.bin*
+
+# Visual Scripting generated files
+Unity/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
+Unity/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
+Unity/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
+Unity/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
+
+# Auto-generated play mode test scenes
+Unity/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Ignore all contents inside Builds folder
+Builds/*
+
+# But track the Builds folder itself (keep empty folder tracked)
+!Builds/.gitkeep
+
+# Third-party Synty assets
+Unity/[Aa]ssets/[Ss]ynty/
+
+# Package samples, re-imported from the package cache by the builders that use them (Crewfall > VR > Build VR Player)
+/Unity/Assets/Samples/
+/Unity/Assets/Samples.meta
