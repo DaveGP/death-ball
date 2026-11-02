@@ -270,9 +270,10 @@ MonoBehaviour:
   carryOffset: {x: 0, y: 1.1, z: 0.6}
   hitSpeed: 16
   ballHit:
-    Damage: 15
+    Damage: 10
     Stagger: 0.6
     BreaksBlock: 0
+  rehitDelay: 1.5
   deflectionBounce: 0.3
   kickoffLaunchSpeed: 6
   resetHeight: -5

@@ -49,7 +49,11 @@ namespace Match
 		private float hitSpeed = 16f;
 
 		[SerializeField]
-		private Hit ballHit = new(15, 0.6f);
+		private Hit ballHit = new(10, 0.6f);
+
+		// Someone the ball just hit can't be hit again this soon, so a shooter can't pin them with rebounds
+		[SerializeField]
+		private float rehitDelay = 1.5f;
 
 		// Share of its speed the ball keeps when it bounces off someone
 		[SerializeField]
@@ -83,6 +87,10 @@ namespace Match
 		private float blockedUntil;
 
 		private float carrierSince;
+
+		private CharacterNetworkController lastHitBody;
+
+		private float lastHitTime = float.MinValue;
 
 		// Whether the current carrier caught a teammate's pass before it touched the ground
 		private bool carrierCaughtPass;
@@ -322,7 +330,8 @@ namespace Match
 			=> speed >= hitSpeed
 			   && Thrower != null
 			   && body.Team != Thrower.Team
-			   && !body.IsKnockedOut;
+			   && !body.IsKnockedOut
+			   && (body != lastHitBody || Time.time >= lastHitTime + rehitDelay);
 
 		// A shot that hits someone hurts them and bounces off, and can no longer score
 		private bool TryHit(CharacterNetworkController body)
@@ -331,6 +340,9 @@ namespace Match
 				return false;
 
 			Thrower = null;
+
+			lastHitBody = body;
+			lastHitTime = Time.time;
 
 			BlockPickup(body, fumbleRecoveryDelay);
 

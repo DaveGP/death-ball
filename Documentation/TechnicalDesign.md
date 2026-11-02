@@ -63,7 +63,12 @@ PlayerController (abstract)  - Bind(body) sets the body's input source
 Two layers, so AI produces exactly the same input as a human:
 
 * **Team tactics** (`TeamBrain`): assigns a role to each AI body every few ticks, such as chase the ball, carry, support, mark a player, guard the ring.
-* **Per-body brain** (`IAIBrain`): turns its role into a `CharacterInput` each tick (move direction, aim, action flags). For now `BallBrain` does both jobs: the AI nearest a loose ball goes for it, the carrier runs at goal and shoots in range (passing to an open teammate or swerving when pressed), the AI nearest an opponent carrier hunts them, and the rest support in their lane or mark.
+* **Per-body brain** (`IAIBrain`): turns its role into a `CharacterInput` each tick (move direction, aim, action flags). For now `BallBrain` does both jobs:
+  * The AI nearest a loose ball goes for it.
+  * The carrier runs at goal and shoots in range (with a few degrees of spread), passing to an open teammate or swerving when pressed.
+  * When the other team has the ball, the AI nearest the carrier hunts them with tackles, the AI nearest our ring keeps goal (stands between carrier and ring with guard up, so shots deflect off it), and the rest mark: shadow an opponent from 2.5 m with guard up, closing in for a swing every 2.5-4 s.
+  * When our team has the ball, the rest support in their lane, guarding when an opponent is within 3 m and hitting back if one gets in reach.
+  * Every swing waits a random beat once in range, so two AIs never attack on the same tick.
 
 AI runs only on the server. Because it goes through the same motor code as humans, it needs no special networking.
 
@@ -117,9 +122,9 @@ AI runs only on the server. Because it goes through the same motor code as human
 
 ## Combat
 
-* `CharacterHealth` (NetworkBehaviour on each body) holds health as a SyncVar (100 by default, in `CharacterStats`) and owns the rules for taking a `Hit`:
+* `CharacterHealth` (NetworkBehaviour on each body) holds health as a SyncVar (200 by default, in `CharacterStats`) and owns the rules for taking a `Hit`:
   * A body that is dodging, or already down, isn't hit at all.
-  * Blocking lets through 30% of the damage and no stagger, unless the hit breaks blocks.
+  * Blocking lets through 10% of the damage and no stagger, unless the hit breaks blocks.
   * Hitting a staggered body does ×1.5 damage.
   * At zero health the body is knocked out; otherwise it is staggered for the hit's stagger time (a lighter hit never cuts a longer stagger short).
 * Melee moves are `Attack`s on the `ActionController` (hit, range, cooldown), all tunable in the inspector:
@@ -128,10 +133,10 @@ AI runs only on the server. Because it goes through the same motor code as human
 | ------ | ------ | ------- | ----- | -------- | ----- |
 | Light  | 10     | 0.25 s  | 1.5 m | 0.4 s    | |
 | Heavy  | 25     | 0.7 s   | 1.7 m | 1.2 s    | Breaks blocks |
-| Tackle | 8      | 0.8 s   | 2.2 m | 1.5 s    | Lunges forward; the carrier can still do it (a barge) |
+| Tackle | 3      | 0.8 s   | 2.2 m | 1.5 s    | Lunges forward; the carrier can still do it (a barge). Mostly for stripping the ball |
 
 * A move hits the nearest opponent within range and 60° of facing. Only the server deals damage; the owning client runs the cooldown and the tackle lunge so it moves straight away.
 * A hit that lands (not blocked) on the carrier also strips the ball, as before.
-* **Ball hits** - a thrown ball moving faster than 16 m/s can't be caught by opponents: it hits them for 15 damage and 0.6 s stagger, bounces back off them, and can no longer score. Passes are slower, so they can still be intercepted; shots are fast, so they hurt anyone in the way.
+* **Ball hits** - a thrown ball moving faster than 16 m/s can't be caught by opponents: it hits them for 10 damage and 0.6 s stagger, bounces back off them, and can no longer score. Someone the ball just hit can't be hit by it again for 1.5 s, so a shooter can't pin them with rebounds. Passes are slower, so they can still be intercepted; shots are fast, so they hurt anyone in the way.
 * Grey-box health bars float over each body, facing the camera.
 * No knockback yet, since a human's body position is owned by their client; it needs a message to the owner like the post-goal teleport.

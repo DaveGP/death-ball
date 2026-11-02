@@ -15,8 +15,12 @@ MonoBehaviour:
   WalkSpeed: 2.5
   RunSpeed: 5.5
   SprintSpeed: 8
+  CarrySpeedMultiplier: 0.85
   Acceleration: 40
   TurnSpeed: 720
   DodgeSpeed: 12
   DodgeDuration: 0.2
   DodgeCooldown: 0.6
+  MaxHealth: 200
+  BlockedDamageMultiplier: 0.1
+  StaggeredDamageMultiplier: 1.5

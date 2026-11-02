@@ -25,3 +25,15 @@ This document is to track decisions and the reasoning behind them throughout the
 ## Shot Assist
 
 02/11/2026 - Shots have no up/down aim, so a shot aimed near the goal is lofted to arrive at ring height while the stick still controls direction. Without it, shots from beyond about 15 m hit the floor before the ring, and the 2-point long-range goal from your own half would be close to impossible.
+
+## Combat Pacing
+
+02/11/2026 - Tuned with AI-only matches. At first every match ended in a knockout within about 90 seconds, and the same team won every match in a session. Causes and fixes:
+
+* AIs met and swung on the same tick, and whichever body the server processed first staggered the other and won the fight. Every AI now waits a random beat before its first swing.
+* Supporting AIs never defended themselves, so the team with the ball took a beating and snowballed to a knockout. Supporters now guard and hit back.
+* Markers stood toe to toe constantly, and blocked chip damage alone outweighed everything else. Markers now shadow from a step back and swing every few seconds.
+* Shots deflecting off a keeper bounced back to the shooter, who could pin the keeper with rebounds (49 hits in two minutes). A body the ball just hit can't be hit by it again for 1.5 s.
+* Numbers: health 200, blocked damage 10%, tackle 3, ball hit 10.
+
+A five-minute AI match now loses about half of all health, usually has one or two knockouts, and goes to full time. Humans fight less constantly than the AI, so real matches should knock out even fewer players.

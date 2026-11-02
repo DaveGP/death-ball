@@ -28,7 +28,7 @@ namespace Character.Actions
 
 		// A lunge that knocks the target off their feet. The carrier can still do this, as a barge.
 		[SerializeField]
-		private Attack tackle = new(new Hit(8, 0.8f), 2.2f, 1.5f);
+		private Attack tackle = new(new Hit(3, 0.8f), 2.2f, 1.5f);
 
 		// How far either side of facing a hit can land
 		[SerializeField]

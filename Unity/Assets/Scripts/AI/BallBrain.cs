@@ -26,7 +26,28 @@ namespace AI
 
 		private const float ArriveDistance = 0.5f;
 
-		private const float ActionCooldown = 0.8f;
+		// Seconds between tackles on the carrier
+		private const float HuntCooldownMin = 1.5f;
+
+		private const float HuntCooldownMax = 2.5f;
+
+		// Seconds between swings at a marked opponent
+		private const float MarkCooldownMin = 2.5f;
+
+		private const float MarkCooldownMax = 4f;
+
+		// How far out from our ring the keeper stands
+		private const float KeeperDistance = 3f;
+
+		// How far a marker stands off between swings
+		private const float MarkDistance = 2.5f;
+
+		// Supporters start guarding when an opponent is this close
+		private const float GuardRange = 3f;
+
+		private const float ReactionMin = 0.15f;
+
+		private const float ReactionMax = 0.6f;
 
 		private const float PressureRange = 3f;
 
@@ -35,7 +56,7 @@ namespace AI
 		private const float SwerveWeight = 1.5f;
 
 		// Degrees either side of the goal, so the AI misses sometimes
-		private const float ShotSpread = 6f;
+		private const float ShotSpread = 8f;
 
 		private readonly CharacterNetworkController self;
 
@@ -44,6 +65,8 @@ namespace AI
 		private readonly float laneX;
 
 		private float nextActionTime;
+
+		private bool inStrikeRange;
 
 		public BallBrain(CharacterNetworkController self, TeamController team, float laneX)
 		{
@@ -75,13 +98,37 @@ namespace AI
 			if (carrier.Team == self.Team)
 				return Support(carrier.transform.position);
 
-			return IsNearestAI(carrier.transform.position)
-				? Strike(carrier.transform, CharacterAction.Tackle)
+			if (IsNearestAI(carrier.transform.position))
+				return Strike(carrier.transform, CharacterAction.Tackle, HuntCooldownMin, HuntCooldownMax, false);
+
+			return IsNearestAI(OwnGoal.position)
+				? Keep(carrier.transform.position)
 				: Mark();
 		}
 
+		private Transform OwnGoal => team.Opponents.AttackTarget;
+
 		private bool IsNearestAI(Vector3 position)
 			=> team.NearestBodyTo(position, aiOnly: true) == self.transform;
+
+		// Stands between the carrier and our ring with guard up. Shots are too fast to catch,
+		// so one that hits the keeper bounces off instead of scoring.
+		private CharacterInput Keep(Vector3 carrierPosition)
+		{
+			var goal = OwnGoal.position;
+
+			var toCarrier = carrierPosition - goal;
+			toCarrier.y = 0f;
+
+			var position = goal + toCarrier.normalized * KeeperDistance;
+			position.y = 0f;
+
+			var move = MoveTo(position, true);
+
+			var facing = Flat(toCarrier).normalized;
+
+			return new CharacterInput(move.Move, facing, move.Action | CharacterAction.Block);
+		}
 
 		private CharacterInput AttackGoal()
 		{
@@ -150,31 +197,82 @@ namespace AI
 		{
 			var position = new Vector3(laneX, 0f, play.z + AttackSign * SupportDistance);
 
-			return MoveTo(position, false);
+			return Guarded(MoveTo(position, false));
 		}
 
+		// Supporters aren't looking for a fight, but they cover up when someone is on them and
+		// hit back if they get close. Without this, whichever team had the ball took a beating
+		// it never answered, and one side snowballed to a knockout every match.
+		private CharacterInput Guarded(CharacterInput input)
+		{
+			var threat = team.Opponents.NearestBodyTo(Position);
+
+			if (threat == null)
+				return input;
+
+			var distance = Flat(threat.position - Position).magnitude;
+
+			if (distance <= StrikeRange)
+				return Strike(threat, CharacterAction.Attack, MarkCooldownMin, MarkCooldownMax, true);
+
+			if (distance <= GuardRange)
+				return new CharacterInput(input.Move, input.Aim, input.Action | CharacterAction.Block);
+
+			return input;
+		}
+
+		// Shadows an opponent from a step back with guard up, closing in for a swing every few
+		// seconds. Standing toe to toe the whole time made fights constant and matches short.
 		private CharacterInput Mark()
 		{
 			var opponent = team.Opponents.NearestBodyTo(Position);
 
-			return opponent == null
-				? CharacterInput.None
-				: Strike(opponent, CharacterAction.Attack);
+			if (opponent == null)
+				return CharacterInput.None;
+
+			if (Time.time >= nextActionTime)
+				return Strike(opponent, CharacterAction.Attack, MarkCooldownMin, MarkCooldownMax, true);
+
+			inStrikeRange = false;
+
+			var away = Position - opponent.position;
+			away.y = 0f;
+
+			var standOff = opponent.position + away.normalized * MarkDistance;
+
+			var toOpponent = Flat(opponent.position - Position).normalized;
+
+			var move = MoveTo(standOff, false);
+
+			return new CharacterInput(move.Move, toOpponent, CharacterAction.Block);
 		}
 
-		private CharacterInput Strike(Transform target, CharacterAction strike)
+		private CharacterInput Strike(Transform target, CharacterAction strike, float cooldownMin, float cooldownMax, bool guard)
 		{
 			var offset = Flat(target.position - Position);
 
 			var direction = offset.normalized;
 
 			if (offset.magnitude > StrikeRange)
+			{
+				inStrikeRange = false;
+
 				return new CharacterInput(direction, direction, CharacterAction.Sprint);
+			}
+
+			// A random beat before the first swing, so two AIs meeting don't swing on the same tick
+			// and leave the fight to whichever the server happens to process first
+			if (!inStrikeRange)
+			{
+				inStrikeRange = true;
+
+				nextActionTime = Mathf.Max(nextActionTime, Time.time + Random.Range(ReactionMin, ReactionMax));
+			}
 
 			if (Time.time < nextActionTime)
-				return new CharacterInput(Vector2.zero, direction, CharacterAction.None);
+				return new CharacterInput(Vector2.zero, direction, guard ? CharacterAction.Block : CharacterAction.None);
 
-			nextActionTime = Time.time + ActionCooldown;
+			nextActionTime = Time.time + Random.Range(cooldownMin, cooldownMax);
 
 			return new CharacterInput(Vector2.zero, direction, strike);
 		}

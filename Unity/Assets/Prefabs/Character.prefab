@@ -419,7 +419,7 @@ MonoBehaviour:
     Cooldown: 1.2
   tackle:
     Hit:
-      Damage: 8
+      Damage: 3
       Stagger: 0.8
       BreaksBlock: 0
     Range: 2.2

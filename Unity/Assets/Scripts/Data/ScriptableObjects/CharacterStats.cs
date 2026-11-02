@@ -23,10 +23,10 @@ namespace Data.ScriptableObjects
 
 		public float DodgeCooldown = 0.6f;
 
-		public int MaxHealth = 100;
+		public int MaxHealth = 200;
 
 		// Share of damage that gets through a block
-		public float BlockedDamageMultiplier = 0.3f;
+		public float BlockedDamageMultiplier = 0.1f;
 
 		// Extra damage against someone already staggered
 		public float StaggeredDamageMultiplier = 1.5f;
