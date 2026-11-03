@@ -281,9 +281,9 @@ GameObject:
   - component: {fileID: 2886670056607703602}
   - component: {fileID: 8954574423247543116}
   - component: {fileID: 5238993303116584432}
-  - component: {fileID: 591376083517696667}
-  - component: {fileID: 626242954968667741}
-  - component: {fileID: 5172361074960114275}
+  - component: {fileID: 3881343701913786782}
+  - component: {fileID: 7259843161149434123}
+  - component: {fileID: 6211260644038700628}
   - component: {fileID: 7241323953793571043}
   - component: {fileID: 7569442854115420755}
   - component: {fileID: 5011927505009625680}
@@ -368,7 +368,7 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 1, z: 0}
---- !u!114 &591376083517696667
+--- !u!114 &3881343701913786782
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -377,55 +377,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 2770324532864464805}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 26b716c41e9b56b4baafaf13a523ba2e, type: 3}
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
-  _localLevelOfDetailCalculationType: 0
-  _useLevelOfDetail: 0
-  _useRootLevelOfDetail: 1
-  NetworkObserver: {fileID: 0}
-  _enablePrediction: 0
-  _predictionType: 0
-  _localReconcileCorrectionType: 2
-  _graphicalObject: {fileID: 0}
-  _detachGraphicalObject: 0
-  _enableStateForwarding: 1
-  _networkTransform: {fileID: 0}
-  _ownerInterpolation: 1
-  _ownerSmoothedProperties: 255
-  _adaptiveInterpolation: 3
-  _spectatorSmoothedProperties: 255
-  _spectatorInterpolation: 2
-  _enableTeleport: 0
-  _teleportThreshold: 1
-  <PrefabId>k__BackingField: 65535
-  <SpawnableCollectionId>k__BackingField: 0
-  <AssetPathHash>k__BackingField: 9396301759440871581
-  SceneId: 0
-  SerializedTransformProperties:
-    Position: {x: 0, y: 0, z: 0}
-    Rotation: {x: 0, y: 0, z: 0, w: 0}
-    Scale: {x: 0, y: 0, z: 0}
-    IsValid: 0
-  <IsNested>k__BackingField: 0
-  WasActiveDuringEdit: 0
-  WasActiveDuringEdit_Set1: 1
-  <ComponentIndex>k__BackingField: 0
-  <PredictedSpawn>k__BackingField: {fileID: 0}
-  <PredictedOwner>k__BackingField: {fileID: 0}
-  NetworkBehaviours: []
-  InitializedParentNetworkBehaviour: {fileID: 0}
-  InitializedNestedNetworkObjects: []
-  RuntimeParentNetworkBehaviour: {fileID: 0}
-  RuntimeChildNetworkBehaviours: []
-  _isNetworked: 1
-  _isSpawnable: 1
-  _isGlobal: 0
-  _initializeOrder: 0
-  _preventDespawnOnDisconnect: 1
-  _defaultDespawnType: 0
-  _initializedTimestamp: 0
---- !u!114 &626242954968667741
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 918123042
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &7259843161149434123
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -434,14 +404,44 @@ MonoBehaviour:
   m_GameObject: {fileID: 2770324532864464805}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c71fd7f855ec523429999fc4e14a1928, type: 3}
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Observing.NetworkObserver
-  _overrideType: 3
-  _updateHostVisibility: 1
-  _observerConditions:
-  - {fileID: 11400000, guid: 2033f54fd2794464bae08fa5a55c8996, type: 2}
---- !u!114 &5172361074960114275
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkTransform
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AutoOwnerAuthorityTickOffset: 1
+  PositionInterpolationType: 0
+  RotationInterpolationType: 0
+  ScaleInterpolationType: 0
+  PositionLerpSmoothing: 1
+  PositionMaxInterpolationTime: 0.1
+  RotationLerpSmoothing: 1
+  RotationMaxInterpolationTime: 0.1
+  ScaleLerpSmoothing: 1
+  ScaleMaxInterpolationTime: 0.1
+  AuthorityMode: 1
+  TickSyncChildren: 0
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 1
+  SyncPositionZ: 1
+  SyncRotAngleX: 1
+  SyncRotAngleY: 1
+  SyncRotAngleZ: 1
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
+  Interpolate: 1
+  SlerpPosition: 0
+--- !u!114 &6211260644038700628
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -450,43 +450,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 2770324532864464805}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a2836e36774ca1c4bbbee976e17b649c, type: 3}
+  m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Component.Transforming.NetworkTransform
-  _componentIndexCache: 255
-  _addedNetworkObject: {fileID: 591376083517696667}
-  _networkObjectCache: {fileID: 0}
-  _componentConfiguration: 0
-  _synchronizeParent: 0
-  _packing:
-    Position: 1
-    Rotation: 1
-    Scale: 0
-  _useScaledTime: 1
-  _interpolation: 2
-  _extrapolation: 2
-  _enableTeleport: 0
-  _teleportThreshold: 1
-  _clientAuthoritative: 1
-  _sendToOwner: 1
-  _interval: 1
-  _synchronizePosition: 1
-  _positionSensitivity: 0.001
-  _positionSnapping:
-    X: 0
-    Y: 0
-    Z: 0
-  _synchronizeRotation: 1
-  _rotationSnapping:
-    X: 0
-    Y: 0
-    Z: 0
-  _synchronizeScale: 1
-  _scaleSensitivity: 0.001
-  _scaleSnapping:
-    X: 0
-    Y: 0
-    Z: 0
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkRigidbodyBaseExpanded: 0
+  UseRigidBodyForMotion: 0
+  AutoUpdateKinematicState: 1
+  AutoSetKinematicOnDespawn: 1
 --- !u!114 &7241323953793571043
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -570,9 +541,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b71fdbfd2b3446b7a1727bfce336492, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Character.Networking.CharacterNetworkController
-  _componentIndexCache: 255
-  _addedNetworkObject: {fileID: 591376083517696667}
-  _networkObjectCache: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1
   playerType: 3
 --- !u!114 &6433158887332914142
 MonoBehaviour:
@@ -586,9 +555,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f3241acd5a8b4a6eb97d337fabec32f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Character.Health.CharacterHealth
-  _componentIndexCache: 255
-  _addedNetworkObject: {fileID: 591376083517696667}
-  _networkObjectCache: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1
   stats: {fileID: 11400000, guid: b82deec60915f448cbc14532ad1c462b, type: 2}
 --- !u!114 &8518324067078583018
 MonoBehaviour:
@@ -602,9 +569,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8a59dd990c9344799fe5914683bac85, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Character.Stamina.CharacterStamina
-  _componentIndexCache: 255
-  _addedNetworkObject: {fileID: 591376083517696667}
-  _networkObjectCache: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1
   stats: {fileID: 11400000, guid: b82deec60915f448cbc14532ad1c462b, type: 2}
 --- !u!114 &259358512748003407
 MonoBehaviour:
@@ -618,9 +583,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e4974c991a1d43d5b5e20bf9c36d4ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Character.Specials.CharacterSpecial
-  _componentIndexCache: 255
-  _addedNetworkObject: {fileID: 591376083517696667}
-  _networkObjectCache: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1
   stats: {fileID: 11400000, guid: b82deec60915f448cbc14532ad1c462b, type: 2}
   move: {fileID: 11400000, guid: 9e2ad7024295a4ce39cec1048bfbd855, type: 2}
 --- !u!114 &4250588379539901515

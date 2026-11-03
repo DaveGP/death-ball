@@ -90,6 +90,9 @@ namespace Character.Movement
 		/// </summary>
 		public void ApplyKnockback(Vector3 velocity)
 		{
+			if (rigidbody.isKinematic)
+				return;
+
 			knockbackVelocity = new Vector3(velocity.x, 0f, velocity.z);
 
 			knockbackEndTime = Time.time + KnockbackDuration;
@@ -104,6 +107,10 @@ namespace Character.Movement
 
 		public void Move(Vector2 direction)
 		{
+			// Another machine moves this copy of the body; it only follows
+			if (rigidbody.isKinematic)
+				return;
+
 			var velocity = rigidbody.linearVelocity;
 
 			if (IsKnockedBack)
@@ -153,7 +160,7 @@ namespace Character.Movement
 
 		public void Face(Vector2 direction)
 		{
-			if (direction.sqrMagnitude < 0.0001f)
+			if (direction.sqrMagnitude < 0.0001f || rigidbody.isKinematic)
 				return;
 
 			var target = Quaternion.LookRotation(new Vector3(direction.x, 0f, direction.y));

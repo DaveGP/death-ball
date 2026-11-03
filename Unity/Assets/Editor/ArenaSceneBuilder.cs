@@ -10,17 +10,14 @@ using Character.Networking;
 using Character.Visuals;
 using Data.Enums;
 using Data.ScriptableObjects;
-using FishNet.Component.Transforming;
-using FishNet.Managing;
-using FishNet.Managing.Object;
-using FishNet.Object;
-using FishNet.Observing;
 using Hazards;
 using Hud;
 using Match;
 using Networking;
 using Players;
 using SystemManagement;
+using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -66,9 +63,7 @@ namespace Builders
 
 		private const string MaterialsFolder = "Assets/Materials";
 
-		private const string DefaultPrefabObjectsPath = "Assets/DefaultPrefabObjects.asset";
 
-		private const string SceneConditionPath = "Assets/FishNet/Runtime/Observing/Conditions/ScriptableObjects/SceneCondition.asset";
 
 		private const float ArenaWidth = 30f;
 
@@ -94,8 +89,8 @@ namespace Builders
 
 			var matchStatePrefab = CreateMatchStatePrefab();
 
-			// Rebuilt prefabs lose their FishNet asset path hash until the collection is refreshed
-			EditorApplication.ExecuteMenuItem("Tools/Fish-Networking/Utility/Refresh Default Prefabs");
+			// After the networked prefabs, so its list of them is up to date
+			NetworkManagerBuilder.Build();
 
 			CreateScene(lineup, ballPrefab, matchStatePrefab);
 
@@ -162,12 +157,15 @@ namespace Builders
 			capsule.radius = 0.4f;
 			capsule.center = Vector3.up;
 
-			var networkObject = root.AddComponent<NetworkObject>();
-			SetSerializedBool(networkObject, "_preventDespawnOnDisconnect", true);
+			root.AddComponent<NetworkObject>();
 
-			AddArenaObserver(root);
+			// Whoever owns the body moves it: a remote player's machine, or the server for everyone else
+			var networkTransform = root.AddComponent<NetworkTransform>();
+			networkTransform.AuthorityMode = NetworkTransform.AuthorityModes.Owner;
+			networkTransform.SyncScaleX = networkTransform.SyncScaleY = networkTransform.SyncScaleZ = false;
 
-			root.AddComponent<NetworkTransform>();
+			// Makes the copies on machines that don't move the body kinematic, so they only follow
+			root.AddComponent<NetworkRigidbody>();
 
 			var movement = root.AddComponent<MovementController>();
 			SetSerializedReference(movement, "stats", stats);
@@ -381,10 +379,12 @@ namespace Builders
 			rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
 			root.AddComponent<NetworkObject>();
-			root.AddComponent<NetworkTransform>();
-			root.AddComponent<Ball>();
 
-			AddArenaObserver(root);
+			var networkTransform = root.AddComponent<NetworkTransform>();
+			networkTransform.SyncScaleX = networkTransform.SyncScaleY = networkTransform.SyncScaleZ = false;
+
+			root.AddComponent<NetworkRigidbody>();
+			root.AddComponent<Ball>();
 
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, BallPrefabPath);
 
@@ -400,22 +400,11 @@ namespace Builders
 			root.AddComponent<NetworkObject>();
 			root.AddComponent<MatchState>();
 
-			AddArenaObserver(root);
-
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, MatchStatePrefabPath);
 
 			Object.DestroyImmediate(root);
 
 			return prefab;
-		}
-
-		// Match objects only go to clients that have loaded the arena. Otherwise a client joining
-		// mid-match was sent them while still swapping scenes, and FishNet lost them.
-		internal static void AddArenaObserver(GameObject root)
-		{
-			var observer = root.AddComponent<NetworkObserver>();
-
-			SetSerializedArray(observer, "_observerConditions", new Object[] { AssetDatabase.LoadAssetAtPath<ObserverCondition>(SceneConditionPath) });
 		}
 
 		private static PhysicsMaterial CreateBallPhysicsMaterial()
@@ -469,12 +458,10 @@ namespace Builders
 
 			CreateHazards();
 
-			var networkManagerObject = new GameObject("NetworkManager");
-			var networkManager = networkManagerObject.AddComponent<NetworkManager>();
-			networkManagerObject.AddComponent<NetworkStarter>();
-
-			// FishNet keeps this collection up to date with every NetworkObject prefab in the project
-			SetSerializedReference(networkManager, "_spawnablePrefabs", AssetDatabase.LoadAssetAtPath<DefaultPrefabObjects>(DefaultPrefabObjectsPath));
+			// Makes the session's NetworkManager if the arena is played directly, and starts local play
+			var starter = new GameObject("Network Starter").AddComponent<NetworkStarter>();
+			SetSerializedReference(starter, "networkManagerPrefab", NetworkManagerBuilder.LoadPrefab());
+			SetSerializedBool(starter, "startLocalIfNotConnected", true);
 
 			var home = CreateTeam(TeamSide.Home, lineup, -1f);
 			var away = CreateTeam(TeamSide.Away, lineup, 1f);

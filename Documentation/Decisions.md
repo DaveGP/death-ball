@@ -69,3 +69,11 @@ In the first AI matches the Runners were knocked out first every time: as the fa
 In AI matches the AI almost never gets caught (one or two hazard hits in several minutes), because it runs clear of anything warning or live. Hazards matter more against humans and as a place to knock someone into; if AI-only play needs them to bite more, the AI could ignore warnings some of the time.
 
 An AI test match stalled with a carrier that never moved. It turned out to be an idle local player on the client editor holding the ball while the AI hunter was wedged outside its tackle range in a crowd. The AI now goes for a tackle from the tackle's own reach.
+
+## Netcode for GameObjects and Relay
+
+03/11/2026 - Moved from FishNet to Netcode for GameObjects with Multiplayer Services sessions, to put the game on GitHub Pages with online play. Browsers can only connect out, over WebSockets, so everyone meets on Unity Relay with secure WebSockets and a join code. FishNet's Relay support needed a third-party transport, while NGO and Multiplayer Services do sessions, Relay and WebSockets out of the box. Movement stays owner-driven as before; NGO has no built-in prediction, so if hits against remote bodies feel laggy, prediction can be added on top later.
+
+* Local play uses a do-nothing transport (`OfflineTransport`) and runs as host, so it still shares the online code path and works in the browser.
+* The host and each joiner pick their own Relay protocol, so both ask for WSS; a joiner left on the default (UDP) can't connect to a WebSocket transport.
+* Making a new scene in a builder unloads assets nothing references yet, so the builders load the NetworkManager prefab after making the scene; a copy loaded before pointed at nothing and the scenes saved an empty reference.

@@ -1,9 +1,6 @@
 using System.Collections.Generic;
-using FishNet.Managing;
-using FishNet.Managing.Object;
-using FishNet.Object;
-using Lobby;
 using Menus;
+using Networking;
 using Players;
 using SystemManagement;
 using UnityEditor;
@@ -24,9 +21,6 @@ namespace Builders
 	{
 		public const string ScenePath = "Assets/Scenes/MainMenu.unity";
 
-		private const string LobbyStatePrefabPath = "Assets/Prefabs/LobbyState.prefab";
-
-		private const string DefaultPrefabObjectsPath = "Assets/DefaultPrefabObjects.asset";
 
 		private static readonly Color BackgroundColour = new(0.08f, 0.08f, 0.1f);
 
@@ -37,35 +31,16 @@ namespace Builders
 		[MenuItem("Death Ball/Build Main Menu Scene")]
 		public static void Build()
 		{
-			var lobbyStatePrefab = CreateLobbyStatePrefab();
+			NetworkManagerBuilder.Build();
 
-			// New prefabs need their FishNet asset path hash
-			EditorApplication.ExecuteMenuItem("Tools/Fish-Networking/Utility/Refresh Default Prefabs");
-
-			CreateScene(lobbyStatePrefab);
+			CreateScene();
 
 			AssetDatabase.SaveAssets();
 
 			Debug.Log("MainMenuSceneBuilder: Main menu scene built.");
 		}
 
-		private static GameObject CreateLobbyStatePrefab()
-		{
-			ArenaSceneBuilder.EnsureFolder("Assets/Prefabs");
-
-			var root = new GameObject("LobbyState");
-
-			root.AddComponent<NetworkObject>();
-			root.AddComponent<LobbyState>();
-
-			var prefab = PrefabUtility.SaveAsPrefabAsset(root, LobbyStatePrefabPath);
-
-			Object.DestroyImmediate(root);
-
-			return prefab;
-		}
-
-		private static void CreateScene(GameObject lobbyStatePrefab)
+		private static void CreateScene()
 		{
 			ArenaSceneBuilder.EnsureFolder("Assets/Scenes");
 
@@ -76,13 +51,9 @@ namespace Builders
 			camera.backgroundColor = BackgroundColour;
 			camera.gameObject.AddComponent<AudioListener>();
 
-			// The session's NetworkManager, which lasts into the arena
-			var networkManagerObject = new GameObject("NetworkManager");
-			var networkManager = networkManagerObject.AddComponent<NetworkManager>();
-			ArenaSceneBuilder.SetSerializedReference(networkManager, "_spawnablePrefabs", AssetDatabase.LoadAssetAtPath<DefaultPrefabObjects>(DefaultPrefabObjectsPath));
-
-			var gameSession = networkManagerObject.AddComponent<GameSession>();
-			ArenaSceneBuilder.SetSerializedReference(gameSession, "lobbyStatePrefab", lobbyStatePrefab.GetComponent<NetworkObject>());
+			// Makes the session's NetworkManager the first time, which then lasts into the arena and back
+			var starter = new GameObject("Network Starter").AddComponent<NetworkStarter>();
+			ArenaSceneBuilder.SetSerializedReference(starter, "networkManagerPrefab", NetworkManagerBuilder.LoadPrefab());
 
 			new GameObject("Local Players").AddComponent<LocalPlayerManager>();
 
@@ -127,22 +98,26 @@ namespace Builders
 
 		private static void CreateStartPanel(Transform root, MainMenuController controller)
 		{
-			var panel = CreatePanel("Start Panel", root, new Vector2(0f, -60f), new Vector2(640f, 620f));
+			var panel = CreatePanel("Start Panel", root, new Vector2(0f, -90f), new Vector2(640f, 700f));
 
-			var nameInput = CreateInputField("Name", panel, "Your name", new Vector2(0f, 220f));
-			var addressInput = CreateInputField("Address", panel, "Host address", new Vector2(0f, 130f));
+			var nameInput = CreateInputField("Name", panel, "Your name", new Vector2(0f, 270f));
 
-			var host = CreateButton("Host", panel, "Host", new Vector2(0f, 20f));
-			var join = CreateButton("Join", panel, "Join", new Vector2(0f, -70f));
-			var quit = CreateButton("Quit", panel, "Quit", new Vector2(0f, -160f));
+			var local = CreateButton("Play Local", panel, "Play Local", new Vector2(0f, 170f));
+			var host = CreateButton("Host Online", panel, "Host Online", new Vector2(0f, 85f));
 
-			var status = CreateText("Status", panel, string.Empty, 28, new Vector2(0f, -250f), new Vector2(600f, 60f), Color.white);
+			var codeInput = CreateInputField("Join Code", panel, "Join code", new Vector2(0f, -15f));
+			var join = CreateButton("Join", panel, "Join", new Vector2(0f, -100f));
+
+			var quit = CreateButton("Quit", panel, "Quit", new Vector2(0f, -195f));
+
+			var status = CreateText("Status", panel, string.Empty, 26, new Vector2(0f, -285f), new Vector2(620f, 90f), Color.white);
 
 			SetReferences(controller, new Dictionary<string, Object>
 			{
 				["startPanel"] = panel.gameObject,
 				["nameInput"] = nameInput,
-				["addressInput"] = addressInput,
+				["codeInput"] = codeInput,
+				["localButton"] = local,
 				["hostButton"] = host,
 				["joinButton"] = join,
 				["quitButton"] = quit,

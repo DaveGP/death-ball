@@ -76,7 +76,7 @@ namespace Character.Movement
 			if (!characterInput.Action.HasFlag(CharacterAction.Dodge) || !stamina.Has(stats.DodgeStaminaCost))
 				return;
 
-			if (movementController.Dodge(characterInput.Move) && stamina.IsServerInitialized)
+			if (movementController.Dodge(characterInput.Move) && stamina.IsServer)
 				stamina.Drain(stats.DodgeStaminaCost);
 		}
 
@@ -87,7 +87,7 @@ namespace Character.Movement
 			movementController.SetGait(gait);
 
 			// Sprinting is free while hasted
-			if (gait == CharacterGait.Sprint && !body.IsHasted && stamina.IsServerInitialized)
+			if (gait == CharacterGait.Sprint && !body.IsHasted && stamina.IsServer)
 				stamina.Drain(stats.SprintStaminaPerSecond * Time.fixedDeltaTime);
 		}
 

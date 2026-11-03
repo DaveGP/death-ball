@@ -2,8 +2,7 @@ using Character.Health;
 using Character.Networking;
 using Data.Combat;
 using DependencyInjection;
-using FishNet.Object;
-using FishNet.Object.Synchronizing;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -68,7 +67,7 @@ namespace Match
 		[SerializeField]
 		private float resetHeight = -5f;
 
-		private readonly SyncVar<CharacterNetworkController> carrier = new();
+		private readonly NetworkVariable<NetworkBehaviourReference> carrier = new();
 
 		private readonly Collider[] overlaps = new Collider[16];
 
@@ -100,9 +99,10 @@ namespace Match
 
 		private bool touchedGroundSinceThrow;
 
-		public CharacterNetworkController Carrier => carrier.Value;
+		public CharacterNetworkController Carrier
+			=> carrier.Value.TryGet(out CharacterNetworkController body) ? body : null;
 
-		public bool IsLoose => carrier.Value == null;
+		public bool IsLoose => Carrier == null;
 
 		// The physics position, which the transform trails when interpolating
 		public Vector3 Position => rigidbody.position;
@@ -127,39 +127,26 @@ namespace Match
 			Physics.IgnoreLayerCollision(gameObject.layer, LayerMask.NameToLayer("Character"));
 		}
 
-		public override void OnStartNetwork()
+		public override void OnNetworkSpawn()
 		{
-			base.OnStartNetwork();
+			base.OnNetworkSpawn();
 
 			ServiceLocator.Register(this);
-		}
-
-		public override void OnStopNetwork()
-		{
-			base.OnStopNetwork();
-
-			ServiceLocator.Unregister(this);
-		}
-
-		public override void OnStartServer()
-		{
-			base.OnStartServer();
 
 			kickoffPosition = transform.position;
 		}
 
-		public override void OnStartClient()
+		public override void OnNetworkDespawn()
 		{
-			base.OnStartClient();
+			base.OnNetworkDespawn();
 
-			if (!IsServerInitialized)
-				rigidbody.isKinematic = true;
+			ServiceLocator.Unregister(this);
 		}
 
 		/// <summary>
 		/// Puts the ball back at the centre and launches it into the air.
 		/// </summary>
-		[Server]
+		// Server only
 		public void Kickoff()
 		{
 			SetLoose();
@@ -175,7 +162,7 @@ namespace Match
 		/// <summary>
 		/// Takes the ball out of play until the next kickoff. It keeps bouncing but nobody can pick it up.
 		/// </summary>
-		[Server]
+		// Server only
 		public void EndPlay()
 		{
 			SetLoose();
@@ -183,10 +170,10 @@ namespace Match
 			isLive = false;
 		}
 
-		[Server]
+		// Server only
 		public void Throw(CharacterNetworkController thrower, Vector3 velocity)
 		{
-			if (carrier.Value != thrower)
+			if (Carrier != thrower)
 				return;
 
 			var assisted = carrierCaughtPass;
@@ -209,10 +196,10 @@ namespace Match
 		/// Knocks the ball out of the carrier's hands in a world-space direction,
 		/// unless they only just got it.
 		/// </summary>
-		[Server]
+		// Server only
 		public bool Strip(Vector3 knockDirection)
 		{
-			var previousCarrier = carrier.Value;
+			var previousCarrier = Carrier;
 
 			if (previousCarrier == null || Time.time < carrierSince + stripImmunity)
 				return false;
@@ -231,10 +218,10 @@ namespace Match
 		/// <summary>
 		/// Lets go of the ball whatever happens, for a carrier who has been knocked out.
 		/// </summary>
-		[Server]
+		// Server only
 		public void Drop()
 		{
-			var previousCarrier = carrier.Value;
+			var previousCarrier = Carrier;
 
 			if (previousCarrier == null)
 				return;
@@ -249,10 +236,10 @@ namespace Match
 		/// <summary>
 		/// Throws a loose ball, for hazards. Doesn't count as a throw, so it can't score.
 		/// </summary>
-		[Server]
+		// Server only
 		public void Launch(Vector3 velocity)
 		{
-			if (carrier.Value != null || !isLive)
+			if (Carrier != null || !isLive)
 				return;
 
 			Thrower = null;
@@ -268,12 +255,14 @@ namespace Match
 
 		private void FixedUpdate()
 		{
-			if (!IsServerInitialized)
+			if (!IsSpawned || !IsServer)
 				return;
 
-			if (carrier.Value != null)
+			var holder = Carrier;
+
+			if (holder != null)
 			{
-				rigidbody.MovePosition(HoldPosition(carrier.Value));
+				rigidbody.MovePosition(HoldPosition(holder));
 				return;
 			}
 
@@ -402,7 +391,7 @@ namespace Match
 		// Clears the last throw too, so only a ball that was thrown can score
 		private void SetLoose()
 		{
-			carrier.Value = null;
+			carrier.Value = default;
 
 			Thrower = null;
 

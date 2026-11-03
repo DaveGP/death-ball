@@ -23,6 +23,8 @@
 * [ ] Ball overcharge
 * [x] Team tactics AI
 * [x] Arena hazards: electric walls, floor vents, rising barriers
+* [x] Playable in the browser on GitHub Pages, with online play over Unity Relay and join codes
+* [ ] Client-side prediction, if hits against remote players feel laggy
 * [ ] More arenas
 * [ ] League mode
 * [ ] Art, animation, audio and commentary

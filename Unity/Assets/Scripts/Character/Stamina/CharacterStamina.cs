@@ -1,6 +1,5 @@
 using Data.ScriptableObjects;
-using FishNet.Object;
-using FishNet.Object.Synchronizing;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -16,7 +15,7 @@ namespace Character.Stamina
 		[SerializeField]
 		private CharacterStats stats;
 
-		private readonly SyncVar<float> current = new();
+		private readonly NetworkVariable<float> current = new();
 
 		private float regenResumeTime;
 
@@ -32,9 +31,12 @@ namespace Character.Stamina
 				Debug.LogError($"{nameof(stats)} is null", this);
 		}
 
-		public override void OnStartServer()
+		public override void OnNetworkSpawn()
 		{
-			base.OnStartServer();
+			base.OnNetworkSpawn();
+
+			if (!IsServer)
+				return;
 
 			Restore();
 		}
@@ -42,7 +44,6 @@ namespace Character.Stamina
 		public bool Has(float amount)
 			=> current.Value >= amount;
 
-		[Server]
 		public void Restore()
 		{
 			current.Value = stats.MaxStamina;
@@ -51,7 +52,6 @@ namespace Character.Stamina
 		/// <summary>
 		/// Spends the amount if there's enough, for actions that can't happen without it.
 		/// </summary>
-		[Server]
 		public bool TrySpend(float amount)
 		{
 			if (!Has(amount))
@@ -65,7 +65,6 @@ namespace Character.Stamina
 		/// <summary>
 		/// Takes away up to the amount, for sprinting and blocked hits, which use whatever is left.
 		/// </summary>
-		[Server]
 		public void Drain(float amount)
 		{
 			current.Value = Mathf.Max(0f, current.Value - amount);
@@ -75,7 +74,7 @@ namespace Character.Stamina
 
 		private void FixedUpdate()
 		{
-			if (!IsServerInitialized || Time.time < regenResumeTime || current.Value >= stats.MaxStamina)
+			if (!IsSpawned || !IsServer || Time.time < regenResumeTime || current.Value >= stats.MaxStamina)
 				return;
 
 			current.Value = Mathf.Min(stats.MaxStamina, current.Value + stats.StaminaRegen * Time.fixedDeltaTime);

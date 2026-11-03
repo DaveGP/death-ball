@@ -94,6 +94,9 @@ Unity/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
 # Ignore all contents inside Builds folder
 Builds/*
+Unity/Builds/
+# Burst output from WebGL builds
+Unity/Data/
 
 # But track the Builds folder itself (keep empty folder tracked)
 !Builds/.gitkeep

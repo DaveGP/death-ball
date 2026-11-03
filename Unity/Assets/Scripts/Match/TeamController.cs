@@ -4,10 +4,8 @@ using AI;
 using Character.Networking;
 using Data.Enums;
 using DependencyInjection;
-using FishNet.Connection;
-using FishNet.Managing;
-using FishNet.Object;
 using Players;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -55,7 +53,7 @@ namespace Match
 
 		public bool IsAllKnockedOut => bodies.Count > 0 && bodies.All(b => b.IsKnockedOut);
 
-		public void SpawnBodies(NetworkManager networkManager)
+		public void SpawnBodies()
 		{
 			Brain = new TeamBrain(this);
 
@@ -63,14 +61,13 @@ namespace Match
 			{
 				var spawnPoint = spawnPoints[i];
 
-				var instance = networkManager.GetPooledInstantiated(
+				var instance = Instantiate(
 					lineup[i % lineup.Length],
 					spawnPoint.position,
-					spawnPoint.rotation,
-					true);
+					spawnPoint.rotation);
 
-				// Into the arena itself, so only clients in the arena are sent it
-				networkManager.ServerManager.Spawn(instance, scene: gameObject.scene);
+				// Goes with the arena when it unloads
+				instance.Spawn(destroyWithScene: true);
 
 				var body = instance.GetComponent<CharacterNetworkController>();
 
@@ -131,9 +128,9 @@ namespace Match
 		/// <summary>
 		/// Gives a human a body no other human has, of their preferred type if that one is free.
 		/// </summary>
-		public bool TryAssignHuman(NetworkConnection connection, int localIndex, PlayerType preferredType)
+		public bool TryAssignHuman(ulong clientId, int localIndex, PlayerType preferredType)
 		{
-			if (bodies.Any(b => b.Owner == connection && b.LocalPlayerIndex == localIndex))
+			if (bodies.Any(b => b.IsHumanControlled && b.OwnerClientId == clientId && b.LocalPlayerIndex == localIndex))
 				return true;
 
 			var free = bodies.Where(b => !b.IsHumanControlled && !b.IsKnockedOut).ToList();
@@ -143,7 +140,7 @@ namespace Match
 			if (body == null)
 				return false;
 
-			HandToHuman(body, connection, localIndex);
+			HandToHuman(body, clientId, localIndex);
 
 			return true;
 		}
@@ -165,18 +162,19 @@ namespace Match
 			if (target == null)
 				return;
 
-			var connection = body.Owner;
+			var clientId = body.OwnerClientId;
 
 			var localIndex = body.LocalPlayerIndex;
 
 			HandToAI(body);
 
-			HandToHuman(target, connection, localIndex);
+			HandToHuman(target, clientId, localIndex);
 		}
 
-		public void ReleaseConnection(NetworkConnection connection)
+		public void ReleaseClient(ulong clientId)
 		{
-			foreach (var body in bodies.Where(b => b.Owner == connection))
+			// Bodies are already gone when the session is shutting down
+			foreach (var body in bodies.Where(b => b.IsSpawned && b.IsHumanControlled && b.OwnerClientId == clientId).ToList())
 				HandToAI(body);
 		}
 
@@ -204,11 +202,11 @@ namespace Match
 			return nearest;
 		}
 
-		private void HandToHuman(CharacterNetworkController body, NetworkConnection connection, int localIndex)
+		private void HandToHuman(CharacterNetworkController body, ulong clientId, int localIndex)
 		{
 			aiControllers[body].Unbind();
 
-			body.AssignHuman(connection, localIndex);
+			body.AssignHuman(clientId, localIndex);
 		}
 
 		private void HandToAI(CharacterNetworkController body)

@@ -1,50 +1,37 @@
-using System;
-using FishNet.Managing;
+using Lobby;
+using Unity.Netcode;
 using UnityEngine;
 
 
 namespace Networking
 {
 	/// <summary>
-	/// Starts the game as host so single-player and couch play run the same code as online.
-	/// Launch with -client (and optionally -address) to join a host instead.
-	/// Stand-in until there is a main menu and lobby.
+	/// Makes sure the session's NetworkManager exists, creating it from its prefab the first time
+	/// any scene loads. It then lasts for the whole session, so later scenes find it already there.
+	///
+	/// In the arena, also starts local play when the scene is played directly in the editor, so it
+	/// can be tried without going through the menu.
 	/// </summary>
-	[RequireComponent(typeof(NetworkManager))]
 	public class NetworkStarter : MonoBehaviour
 	{
 		[SerializeField]
-		private bool startOnPlay = true;
+		private NetworkManager networkManagerPrefab;
 
-		private NetworkManager networkManager;
+		[SerializeField]
+		private bool startLocalIfNotConnected;
 
 		private void Awake()
 		{
-			networkManager = GetComponent<NetworkManager>();
+			if (NetworkManager.Singleton == null)
+				Instantiate(networkManagerPrefab);
 		}
 
 		private void Start()
 		{
-			if (!startOnPlay)
-				return;
+			var networkManager = NetworkManager.Singleton;
 
-			var args = Environment.GetCommandLineArgs();
-
-			if (Array.IndexOf(args, "-client") >= 0)
-			{
-				var addressIndex = Array.IndexOf(args, "-address");
-
-				var address = addressIndex >= 0 && addressIndex + 1 < args.Length
-					? args[addressIndex + 1]
-					: "localhost";
-
-				networkManager.ClientManager.StartConnection(address);
-
-				return;
-			}
-
-			networkManager.ServerManager.StartConnection();
-			networkManager.ClientManager.StartConnection();
+			if (startLocalIfNotConnected && !networkManager.IsListening)
+				networkManager.GetComponent<GameSession>().PlayLocal();
 		}
 	}
 }
