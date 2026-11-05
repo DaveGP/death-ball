@@ -1,5 +1,6 @@
 using UnityEngine;
 using Data.Enums;
+using Unity.Netcode;
 
 
 namespace Data.Input
@@ -7,14 +8,15 @@ namespace Data.Input
 	/// <summary>
 	/// The input a character consumes each fixed tick. Move and Aim are world-space
 	/// directions on the XZ plane, so humans and AI produce exactly the same thing.
+	/// Sent to the server each tick for bodies a remote player drives.
 	/// </summary>
-	public readonly struct CharacterInput
+	public struct CharacterInput : INetworkSerializable
 	{
-		public readonly Vector2 Move;
+		public Vector2 Move;
 
-		public readonly Vector2 Aim;
+		public Vector2 Aim;
 
-		public readonly CharacterAction Action;
+		public CharacterAction Action;
 
 		public CharacterInput(
 			Vector2 move,
@@ -28,5 +30,12 @@ namespace Data.Input
 
 		public static CharacterInput None
 			=> new(Vector2.zero, Vector2.zero, CharacterAction.None);
+
+		public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+		{
+			serializer.SerializeValue(ref Move);
+			serializer.SerializeValue(ref Aim);
+			serializer.SerializeValue(ref Action);
+		}
 	}
 }

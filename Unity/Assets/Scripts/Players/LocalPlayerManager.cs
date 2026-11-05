@@ -4,9 +4,7 @@ using Character.Input;
 using Controls;
 using Data.Enums;
 using DependencyInjection;
-using FishNet;
-using FishNet.Transporting;
-using Networking;
+using Match;
 using SystemManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -20,9 +18,9 @@ namespace Players
 	/// Players are made in the lobby and carried into the match, so there is one of these for
 	/// the whole session; the copy in a game scene loaded from the menu removes itself.
 	///
-	/// When a match is ready the server asks for this machine's players, and each one asks for
-	/// a body on its chosen team, of its chosen type if free. Players who join mid-match ask
-	/// straight away.
+	/// When a match's state reaches this machine, which only happens once it has loaded the arena,
+	/// each player asks for a body on its chosen team, of its chosen type if free. Players who
+	/// join mid-match ask straight away.
 	/// </summary>
 	public class LocalPlayerManager : MonoBehaviour
 	{
@@ -46,15 +44,22 @@ namespace Players
 
 		private IDisposable anyButtonListener;
 
-		// Whether the server has a match waiting for players
-		private bool matchWantsPlayers;
+		// The match this machine's players have asked to join
+		private MatchState joinedMatch;
 
 		/// <summary>
 		/// The name players on this machine go by, remembered between sessions.
 		/// </summary>
 		public static string PlayerName
 		{
-			get => PlayerPrefs.GetString(NameKey, $"Player {UnityEngine.Random.Range(100, 1000)}");
+			get
+			{
+				// Pick a default once, so the menu and the lobby agree
+				if (!PlayerPrefs.HasKey(NameKey))
+					PlayerPrefs.SetString(NameKey, $"Player {UnityEngine.Random.Range(100, 1000)}");
+
+				return PlayerPrefs.GetString(NameKey);
+			}
 			set => PlayerPrefs.SetString(NameKey, value);
 		}
 
@@ -82,10 +87,25 @@ namespace Players
 				return;
 
 			anyButtonListener = InputSystem.onAnyButtonPress.Call(OnAnyButtonPress);
+		}
 
-			InstanceFinder.ClientManager.RegisterBroadcast<RequestPlayersBroadcast>(OnRequestPlayers);
+		private void Update()
+		{
+			if (instance != this)
+				return;
 
-			InstanceFinder.ClientManager.OnClientConnectionState += OnClientConnectionState;
+			ServiceLocator.TryGet(out MatchState match);
+
+			if (match == joinedMatch)
+				return;
+
+			joinedMatch = match;
+
+			if (joinedMatch == null)
+				return;
+
+			foreach (var player in localPlayers.Players)
+				RequestBody(player);
 		}
 
 		private void OnDestroy()
@@ -94,13 +114,6 @@ namespace Players
 				return;
 
 			anyButtonListener?.Dispose();
-
-			if (InstanceFinder.ClientManager != null)
-			{
-				InstanceFinder.ClientManager.UnregisterBroadcast<RequestPlayersBroadcast>(OnRequestPlayers);
-
-				InstanceFinder.ClientManager.OnClientConnectionState -= OnClientConnectionState;
-			}
 
 			foreach (var player in localPlayers.Players)
 				player.Dispose();
@@ -157,34 +170,12 @@ namespace Players
 
 			Debug.Log($"Local player {index + 1} joined {team} with {string.Join(", ", devices.Select(d => d.displayName))}");
 
-			if (matchWantsPlayers)
+			if (joinedMatch != null)
 				RequestBody(player);
 		}
 
-		private void OnRequestPlayers(RequestPlayersBroadcast message, Channel channel)
-		{
-			matchWantsPlayers = true;
-
-			foreach (var player in localPlayers.Players)
-				RequestBody(player);
-		}
-
-		// Back in the menu after leaving or losing the server
-		private void OnClientConnectionState(ClientConnectionStateArgs args)
-		{
-			if (args.ConnectionState == LocalConnectionState.Stopped)
-				matchWantsPlayers = false;
-		}
-
-		private static void RequestBody(LocalPlayerController player)
-		{
-			InstanceFinder.ClientManager.Broadcast(new JoinTeamBroadcast
-			{
-				LocalIndex = player.Index,
-				Team = player.Team,
-				PreferredType = player.PreferredType
-			});
-		}
+		private void RequestBody(LocalPlayerController player)
+			=> joinedMatch.RequestBody(player.Index, player.Team, player.PreferredType);
 
 		private static TeamSide Opposite(TeamSide side)
 			=> side == TeamSide.Home ? TeamSide.Away : TeamSide.Home;

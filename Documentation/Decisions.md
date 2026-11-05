@@ -18,6 +18,8 @@ This document is to track decisions and the reasoning behind them throughout the
 
 02/11/2026 - As on Crewfall, Synty asset packs stay in an ignored local folder to keep the repository within LFS storage limits.
 
+05/11/2026 - That folder is now `Unity/Assets/ThirdParty`, as on Witch Craft, with `Synty/` for Synty packs and `AssetStore/` for other Asset Store packs. Git tracks the folders and a README but ignores their contents: the repo is public and the packs' licences don't allow redistributing them.
+
 ## Ball Possession
 
 02/11/2026 - Catching is the same as picking up: the nearest player within reach of a loose ball below head height gets it, and the ball passes through players rather than bouncing off them. This makes interceptions automatic and keeps the server logic to one rule. Stripping the carrier staggers them, and new carriers get a second of strip immunity; in playtests without these, the carrier and the nearest defender swapped the ball every second and play never left the halfway line.
@@ -69,3 +71,17 @@ In the first AI matches the Runners were knocked out first every time: as the fa
 In AI matches the AI almost never gets caught (one or two hazard hits in several minutes), because it runs clear of anything warning or live. Hazards matter more against humans and as a place to knock someone into; if AI-only play needs them to bite more, the AI could ignore warnings some of the time.
 
 An AI test match stalled with a carrier that never moved. It turned out to be an idle local player on the client editor holding the ball while the AI hunter was wedged outside its tackle range in a crowd. The AI now goes for a tackle from the tackle's own reach.
+
+## Netcode for GameObjects and Relay
+
+03/11/2026 - Moved from FishNet to Netcode for GameObjects with Multiplayer Services sessions, to put the game on GitHub Pages with online play. Browsers can only connect out, over WebSockets, so everyone meets on Unity Relay with secure WebSockets and a join code. FishNet's Relay support needed a third-party transport, while NGO and Multiplayer Services do sessions, Relay and WebSockets out of the box. Movement stays owner-driven as before; NGO has no built-in prediction, so if hits against remote bodies feel laggy, prediction can be added on top later.
+
+* Local play uses a do-nothing transport (`OfflineTransport`) and runs as host, so it still shares the online code path and works in the browser.
+* The host and each joiner pick their own Relay protocol, so both ask for WSS; a joiner left on the default (UDP) can't connect to a WebSocket transport.
+* Making a new scene in a builder unloads assets nothing references yet, so the builders load the NetworkManager prefab after making the scene; a copy loaded before pointed at nothing and the scenes saved an empty reference.
+
+## The ball is drawn separately from its networked position
+
+05/11/2026 - Testing with added lag showed the ball trailing its carrier by 1.65 m on the carrier's own screen at a 50 ms round trip, and 2.88 m at 350 ms, because its position goes through the server and back with smoothing on each leg. The ball's visual is now a child that sits at the carrier's hands on every machine, measured at about 0.02 m at every lag. Letting go glides slowly, at about running speed: at the same speed as picking up, a ball shot on the run slid back up to 1.8 m towards its trailing position before flying forward.
+
+The same test found that NGO recalculates a prefab's hash whenever the editor validates it, so the builder's own hash could drift from the saved prefab and clients were refused with a config mismatch. The builder now uses NGO's formula.

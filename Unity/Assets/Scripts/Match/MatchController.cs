@@ -2,26 +2,20 @@ using System.Collections;
 using System.Linq;
 using Data.Enums;
 using DependencyInjection;
-using FishNet;
-using FishNet.Connection;
-using FishNet.Managing;
-using FishNet.Managing.Scened;
-using FishNet.Object;
-using FishNet.Transporting;
-using Networking;
+using Unity.Netcode;
 using UnityEngine;
 
 
 namespace Match
 {
 	/// <summary>
-	/// Server side. Spawns both teams, the ball and the match state when the server starts,
-	/// hands bodies to the humans that join, and runs the match: the clock, goals, and the
-	/// three ways it ends. Most points at full time wins; a draw goes to sudden death, where
-	/// the next goal wins; and knocking out the whole other team wins at any point.
+	/// Server side. Spawns both teams, the ball and the match state, hands bodies to the humans
+	/// that ask for them, and runs the match: the clock, goals, and the three ways it ends. Most
+	/// points at full time wins; a draw goes to sudden death, where the next goal wins; and knocking
+	/// out the whole other team wins at any point.
 	///
-	/// Works the same whether the arena is played directly, starting the server itself, or
-	/// loaded from the lobby with the server already running.
+	/// Works the same whether the arena is played directly, starting a host itself, or loaded from
+	/// the lobby with the session already running.
 	/// </summary>
 	public class MatchController : MonoBehaviour
 	{
@@ -54,9 +48,6 @@ namespace Match
 
 		private NetworkManager networkManager;
 
-		// Loaded by the lobby's GameSession through FishNet, rather than played directly
-		private bool loadedFromLobby;
-
 		private Ball ball;
 
 		private MatchState matchState;
@@ -69,21 +60,17 @@ namespace Match
 
 		private bool IsInPlay => matchState != null && matchState.Phase != MatchPhase.Ended;
 
-		// Start rather than OnEnable: when the arena is loaded from the menu its own
-		// NetworkManager is discarded in Awake in favour of the menu's
 		private void Start()
 		{
-			networkManager = InstanceFinder.NetworkManager;
+			networkManager = NetworkManager.Singleton;
 
-			networkManager.ServerManager.OnServerConnectionState += OnServerConnectionState;
-			networkManager.ServerManager.OnRemoteConnectionState += OnRemoteConnectionState;
-			networkManager.ServerManager.OnAuthenticationResult += OnAuthenticationResult;
-			networkManager.ServerManager.RegisterBroadcast<JoinTeamBroadcast>(OnJoinTeam);
-			networkManager.SceneManager.OnClientPresenceChangeEnd += OnClientPresenceChangeEnd;
+			if (networkManager == null)
+				return;
 
-			loadedFromLobby = networkManager.GetComponent<Lobby.GameSession>() != null;
+			networkManager.OnServerStarted += SetUpMatch;
+			networkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
-			if (networkManager.IsServerStarted)
+			if (networkManager.IsServer)
 				SetUpMatch();
 		}
 
@@ -92,93 +79,40 @@ namespace Match
 			if (networkManager == null)
 				return;
 
-			networkManager.ServerManager.OnServerConnectionState -= OnServerConnectionState;
-			networkManager.ServerManager.OnRemoteConnectionState -= OnRemoteConnectionState;
-			networkManager.ServerManager.OnAuthenticationResult -= OnAuthenticationResult;
-			networkManager.ServerManager.UnregisterBroadcast<JoinTeamBroadcast>(OnJoinTeam);
-			networkManager.SceneManager.OnClientPresenceChangeEnd -= OnClientPresenceChangeEnd;
+			networkManager.OnServerStarted -= SetUpMatch;
+			networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+
+			if (matchState != null)
+				matchState.BodyRequested -= OnBodyRequested;
 		}
 
+		// Clients ask for their bodies through the match state, which only reaches them once they
+		// have loaded the arena, so a body is never handed to a client that can't see the floor yet
 		private void SetUpMatch()
 		{
+			if (matchState != null)
+				return;
+
 			foreach (var team in teams)
-				team.SpawnBodies(networkManager);
+				team.SpawnBodies();
 
 			matchState = Spawn(matchStatePrefab, Vector3.zero).GetComponent<MatchState>();
+			matchState.BodyRequested += OnBodyRequested;
 
 			ball = Spawn(ballPrefab, ballSpawn.position).GetComponent<Ball>();
 
-			if (ServiceLocator.TryGet(out MatchSettings settings) && loadedFromLobby)
+			if (ServiceLocator.TryGet(out MatchSettings settings) && settings.FromLobby)
 				matchLength = settings.MatchLengthSeconds;
 
 			StartMatch();
-
-			RequestPlayersFromEveryone();
 		}
 
-		// A client's players are only asked for once it has loaded the arena. A human's body is
-		// moved by its owner, so one handed over while the owner was still loading fell through
-		// a floor that wasn't there yet.
-		private void RequestPlayersFromEveryone()
+		private static NetworkObject Spawn(NetworkObject prefab, Vector3 position)
 		{
-			if (!loadedFromLobby)
-			{
-				networkManager.ServerManager.Broadcast(new RequestPlayersBroadcast());
-				return;
-			}
+			var instance = Instantiate(prefab, position, Quaternion.identity);
 
-			if (!networkManager.SceneManager.SceneConnections.TryGetValue(gameObject.scene, out var connections))
-				return;
-
-			foreach (var connection in connections)
-				networkManager.ServerManager.Broadcast(connection, new RequestPlayersBroadcast());
-		}
-
-		private void OnClientPresenceChangeEnd(ClientPresenceChangeEventArgs args)
-		{
-			if (loadedFromLobby && args.Added && args.Scene == gameObject.scene && matchState != null)
-				networkManager.ServerManager.Broadcast(args.Connection, new RequestPlayersBroadcast());
-		}
-
-		// Played directly, the arena was loaded by Unity rather than FishNet, so FishNet doesn't know who
-		// is in it. Match objects are only sent to clients in the arena scene, so add each one and ask
-		// for its players once it connects.
-		private void OnAuthenticationResult(NetworkConnection connection, bool passed)
-		{
-			if (!passed || loadedFromLobby)
-				return;
-
-			networkManager.SceneManager.AddConnectionToScene(connection, gameObject.scene);
-
-			if (matchState != null)
-				networkManager.ServerManager.Broadcast(connection, new RequestPlayersBroadcast());
-		}
-
-		private void OnServerConnectionState(ServerConnectionStateArgs args)
-		{
-			if (args.ConnectionState == LocalConnectionState.Started)
-			{
-				SetUpMatch();
-			}
-			else if (args.ConnectionState == LocalConnectionState.Stopped)
-			{
-				foreach (var team in teams)
-					team.Clear();
-
-				StopAllCoroutines();
-
-				ball = null;
-				matchState = null;
-				resettingAfterGoal = false;
-			}
-		}
-
-		private NetworkObject Spawn(NetworkObject prefab, Vector3 position)
-		{
-			var instance = networkManager.GetPooledInstantiated(prefab, position, Quaternion.identity, true);
-
-			// Into the arena itself, so only clients in the arena are sent it
-			networkManager.ServerManager.Spawn(instance, scene: gameObject.scene);
+			// Goes with the arena when it unloads
+			instance.Spawn(destroyWithScene: true);
 
 			return instance;
 		}
@@ -343,21 +277,21 @@ namespace Match
 			previousBallPosition = ballSpawn.position;
 		}
 
-		private void OnRemoteConnectionState(NetworkConnection connection, RemoteConnectionStateArgs args)
+		private void OnClientDisconnected(ulong clientId)
 		{
-			if (args.ConnectionState != RemoteConnectionState.Stopped)
+			if (!networkManager.IsServer)
 				return;
 
 			foreach (var team in teams)
-				team.ReleaseConnection(connection);
+				team.ReleaseClient(clientId);
 		}
 
-		private void OnJoinTeam(NetworkConnection connection, JoinTeamBroadcast message, Channel channel)
+		private void OnBodyRequested(ulong clientId, int localIndex, TeamSide side, PlayerType preferredType)
 		{
-			var team = teams.FirstOrDefault(t => t.Side == message.Team);
+			var team = teams.FirstOrDefault(t => t.Side == side);
 
-			if (team == null || !team.TryAssignHuman(connection, message.LocalIndex, message.PreferredType))
-				Debug.LogWarning($"No free body on {message.Team} for client {connection.ClientId} player {message.LocalIndex + 1}");
+			if (team == null || !team.TryAssignHuman(clientId, localIndex, preferredType))
+				Debug.LogWarning($"No free body on {side} for client {clientId} player {localIndex + 1}");
 		}
 	}
 }

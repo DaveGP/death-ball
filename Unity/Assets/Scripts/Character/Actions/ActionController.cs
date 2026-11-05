@@ -160,7 +160,7 @@ namespace Character.Actions
 
 			nextTime = Time.time + attack.Cooldown;
 
-			if (body.IsServerInitialized && staminaCost > 0f)
+			if (body.IsServer && staminaCost > 0f)
 				stamina.Drain(staminaCost);
 
 			return true;
@@ -210,13 +210,13 @@ namespace Character.Actions
 
 		public void OnSpecial()
 		{
-			if (body.IsServerInitialized)
+			if (body.IsServer)
 				special.TryUse();
 		}
 
 		private bool CanThrow(out Ball ball)
 		{
-			if (body.IsServerInitialized && TryGetBall(out ball) && ball.Carrier == body)
+			if (body.IsServer && TryGetBall(out ball) && ball.Carrier == body)
 				return true;
 
 			ball = null;
@@ -227,7 +227,7 @@ namespace Character.Actions
 		// Hits the nearest opponent in front. A hit that lands on the carrier knocks the ball loose.
 		private void Strike(Attack attack)
 		{
-			if (!body.IsServerInitialized)
+			if (!body.IsServer)
 				return;
 
 			var target = FindTarget(attack.Range);

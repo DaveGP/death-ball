@@ -1,7 +1,6 @@
 using Character.Networking;
 using Data.ScriptableObjects;
-using FishNet.Object;
-using FishNet.Object.Synchronizing;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -19,7 +18,7 @@ namespace Character.Specials
 		[SerializeField]
 		private SpecialMove move;
 
-		private readonly SyncVar<float> meter = new();
+		private readonly NetworkVariable<float> meter = new();
 
 		private CharacterNetworkController body;
 
@@ -43,19 +42,16 @@ namespace Character.Specials
 				Debug.LogError($"{nameof(move)} is null", this);
 		}
 
-		[Server]
 		public void Charge(float amount)
 		{
 			meter.Value = Mathf.Min(stats.SpecialMeterMax, meter.Value + amount);
 		}
 
-		[Server]
 		public void Empty()
 		{
 			meter.Value = 0f;
 		}
 
-		[Server]
 		public bool TryUse()
 		{
 			if (!IsReady || !move.Perform(body))
@@ -63,13 +59,13 @@ namespace Character.Specials
 
 			meter.Value = 0f;
 
-			PlayEffect(transform.position);
+			PlayEffectRpc(transform.position);
 
 			return true;
 		}
 
-		[ObserversRpc]
-		private void PlayEffect(Vector3 position)
+		[Rpc(SendTo.ClientsAndHost)]
+		private void PlayEffectRpc(Vector3 position)
 		{
 			move.PlayEffect(position);
 		}

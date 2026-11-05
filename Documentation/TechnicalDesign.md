@@ -78,19 +78,21 @@ Two layers, so AI produces exactly the same input as a human:
 
 AI runs only on the server. Because it goes through the same motor code as humans, it needs no special networking.
 
-## Networking (FishNet)
+## Networking (Netcode for GameObjects)
 
 * **Ownership**
-  * A character controlled by a human is owned by that human's client connection.
-  * AI characters and the ball are owned by the server.
-  * Switching teammates transfers ownership of the old and new bodies on the server (`GiveOwnership` / `RemoveOwnership`).
-* **Input flow** - same as Crewfall: the owner consumes input in FixedUpdate and sends it with `[ServerRpc(RunLocally = true)]`; the server runs `CharacterMotor`.
-* **State** - movement state (velocity, grounded, gait) and combat state (health, stamina, stagger, KO) go back through SyncVars for animation and HUD.
+  * A character controlled by a human is owned by that human's client.
+  * AI characters, the ball and the match objects are owned by the server. The host's client id is the server's, so the host's own humans count as server-owned too.
+  * Switching teammates moves ownership of the old and new bodies on the server (`ChangeOwnership` / `RemoveOwnership`).
+* **Input flow** - as in Crewfall: whoever owns a body consumes its input in FixedUpdate and runs `CharacterMotor` on it; a client also sends the input to the server (`SendInputRpc`), which runs the actions, since it decides hits and the ball.
+* **Movement** - owner-driven. Bodies use `NetworkTransform` with owner authority and `NetworkRigidbody`, so copies a machine doesn't own are kinematic. Knockback and teleports are sent to the owner (`[Rpc(SendTo.Owner)]`).
+* **State** - movement state (velocity, grounded, gait) is written by the owner; combat state (health, stamina, stagger, KO) by the server, as `NetworkVariable`s. Timed effects store an end tick on the server's clock.
 * **Couch players online** - several local players on one client each get their own owned body. A client can own more than one character.
-* **Offline** - single-player and couch play run as host with no remote clients, so there is only one code path.
-* Bodies use `NetworkTransform` with client authority, as in Crewfall, and `NetworkObject` is set to not despawn when its owner disconnects; the body goes back to AI instead.
-* The main menu hosts or joins and runs the lobby; see [Main Menu and Lobby](MainMenu.md). Playing the arena scene directly starts it as host through `NetworkStarter` (launch a build of it with `-client [-address <ip>]` to join one).
-* Later: client-side prediction (FishNet's prediction) for responsive movement and hits, and server authority for anti-cheat.
+* **Local play** - solo and couch play run as host on `OfflineTransport`, a transport that never opens a connection, so offline and online share one code path. That also works in the browser, which can't listen for connections.
+* **Online play** - Multiplayer Services sessions over Unity Relay with secure WebSockets, so browser and desktop players can play together without anyone running a server. The host gets a join code to share. See [Main Menu and Lobby](MainMenu.md).
+* **Prefab ids** - the builders make prefabs from scratch, so `NetworkManagerBuilder` hashes each saved prefab with NGO's own formula, so that later validation in any editor gets the same value, and lists them all in `Assets/Prefabs/NetworkPrefabs.asset`.
+* **The carried ball** - the ball's networked position goes from the carrier's machine to the server and back, so it trails a running carrier. `BallVisual` draws a carried ball at the carrier's hands on every machine instead; the physics and networking stay on the root object.
+* Later: client-side prediction for responsive hits against remote bodies, and server authority for anti-cheat.
 
 ## Match Systems
 
@@ -170,7 +172,7 @@ AI runs only on the server. Because it goes through the same motor code as human
 
 ## Arena Hazards
 
-* Every hazard derives from `Hazard`: a repeating cycle of off, warning (flashing) and live, with its own period, durations and offset so hazards don't all go off together. The cycle is computed from FishNet's synced tick, so every machine shows the same state with no networking; only the server applies effects. A hazard hits each player at most once per activation.
+* Every hazard derives from `Hazard`: a repeating cycle of off, warning (flashing) and live, with its own period, durations and offset so hazards don't all go off together. The cycle is computed from the server's synced time, so every machine shows the same state with no networking; only the server applies effects. A hazard hits each player at most once per activation.
 * **Electric walls** - panels on the side walls. While live, anyone against one takes 15 damage (through their guard) and is thrown back into the arena.
 * **Floor vents** - grates that blast upward for a second. Anyone on one takes 20 damage and is thrown up and out; a loose ball on one is launched into the air (it can't score from that).
 * **Rising barriers** - blocks either side of halfway that rise for 8 s of every 18, closing off that lane. They move the same way on every machine from the shared cycle, so a human's own machine, which moves their body, collides with the same wall as the server.

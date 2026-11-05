@@ -3,7 +3,7 @@ using Character.Health;
 using Character.Networking;
 using Data.Combat;
 using DependencyInjection;
-using FishNet;
+using Unity.Netcode;
 using Match;
 using UnityEngine;
 
@@ -12,7 +12,7 @@ namespace Hazards
 {
 	/// <summary>
 	/// An arena hazard on a repeating cycle: off, then a warning, then live. The cycle comes from
-	/// FishNet's synced tick, so every machine shows the same state without the hazard being
+	/// the network's shared clock, so every machine shows the same state without the hazard being
 	/// networked at all. Only the server deals the damage.
 	///
 	/// Hazards hurt both teams, so throwing an opponent into one is a tactic.
@@ -64,17 +64,17 @@ namespace Hazards
 
 		protected float WarningDuration => warning;
 
-		protected static bool IsServer => InstanceFinder.IsServerStarted;
+		protected static bool IsServer => NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
 
-		// The synced tick where there is one, so all machines agree
+		// The server's clock where there is one, so all machines agree
 		private static double Now
 		{
 			get
 			{
-				var timeManager = InstanceFinder.TimeManager;
+				var networkManager = NetworkManager.Singleton;
 
-				return timeManager != null && timeManager.Tick > 0
-					? timeManager.Tick * timeManager.TickDelta
+				return networkManager != null && networkManager.IsListening
+					? networkManager.ServerTime.Time
 					: Time.timeAsDouble;
 			}
 		}

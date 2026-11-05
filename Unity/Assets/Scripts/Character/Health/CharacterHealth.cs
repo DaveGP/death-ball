@@ -6,8 +6,7 @@ using Character.Specials;
 using Character.Stamina;
 using Data.Combat;
 using Data.ScriptableObjects;
-using FishNet.Object;
-using FishNet.Object.Synchronizing;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -22,7 +21,7 @@ namespace Character.Health
 		[SerializeField]
 		private CharacterStats stats;
 
-		private readonly SyncVar<int> currentHealth = new();
+		private readonly NetworkVariable<int> currentHealth = new();
 
 		private CharacterNetworkController body;
 
@@ -57,14 +56,16 @@ namespace Character.Health
 				Debug.LogError($"{nameof(stats)} is null", this);
 		}
 
-		public override void OnStartServer()
+		public override void OnNetworkSpawn()
 		{
-			base.OnStartServer();
+			base.OnNetworkSpawn();
+
+			if (!IsServer)
+				return;
 
 			Restore();
 		}
 
-		[Server]
 		public void Restore()
 		{
 			currentHealth.Value = stats.MaxHealth;
@@ -75,7 +76,6 @@ namespace Character.Health
 		/// is one, charges their special meter from the damage dealt, as the target does from
 		/// the damage taken.
 		/// </summary>
-		[Server]
 		public HitResult TakeHit(Hit hit, CharacterNetworkController attacker = null)
 		{
 			if (body.IsKnockedOut || movementState.IsDodging)

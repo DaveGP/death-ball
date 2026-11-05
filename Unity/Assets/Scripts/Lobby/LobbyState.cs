@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Data.Enums;
 using DependencyInjection;
-using FishNet.Connection;
-using FishNet.Object;
-using FishNet.Object.Synchronizing;
-using FishNet.Transporting;
+using Unity.Collections;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -17,61 +16,58 @@ namespace Lobby
 	/// </summary>
 	public class LobbyState : NetworkBehaviour
 	{
-		// Players per machine, so a client id and local index make one key
 		private const int MaxLocalPlayers = 8;
 
 		[SerializeField]
 		private int maxNameLength = 16;
 
-		private readonly SyncDictionary<int, LobbyEntry> entries = new();
+		private readonly NetworkList<LobbyEntry> entries = new();
 
 		// Whole seconds, chosen by the host
-		private readonly SyncVar<int> matchLength = new();
+		private readonly NetworkVariable<int> matchLength = new();
 
-		public IEnumerable<LobbyEntry> Entries => entries.Values;
+		public IEnumerable<LobbyEntry> Entries
+		{
+			get
+			{
+				foreach (var entry in entries)
+					yield return entry;
+			}
+		}
 
 		public int MatchLength => matchLength.Value;
 
 		public event Action Changed;
 
-		private void Awake()
+		public override void OnNetworkSpawn()
 		{
-			entries.OnChange += OnEntriesChanged;
+			base.OnNetworkSpawn();
 
-			matchLength.OnChange += (_, _, asServer) => RaiseChanged(asServer);
-		}
+			entries.OnListChanged += OnEntriesChanged;
 
-		// Found by the menu only once this client can send to it. Registering any earlier, on the
-		// host, let players already in the session submit before their messages could go through.
-		public override void OnStartClient()
-		{
-			base.OnStartClient();
+			matchLength.OnValueChanged += OnMatchLengthChanged;
+
+			if (IsServer)
+				NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
 			ServiceLocator.Register(this);
 		}
 
-		public override void OnStopClient()
+		public override void OnNetworkDespawn()
 		{
-			base.OnStopClient();
+			base.OnNetworkDespawn();
+
+			entries.OnListChanged -= OnEntriesChanged;
+
+			matchLength.OnValueChanged -= OnMatchLengthChanged;
+
+			if (NetworkManager != null)
+				NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
 
 			ServiceLocator.Unregister(this);
 		}
 
-		public override void OnStartServer()
-		{
-			base.OnStartServer();
-
-			ServerManager.OnRemoteConnectionState += OnRemoteConnectionState;
-		}
-
-		public override void OnStopServer()
-		{
-			base.OnStopServer();
-
-			ServerManager.OnRemoteConnectionState -= OnRemoteConnectionState;
-		}
-
-		[Server]
+		// Server only
 		public void SetMatchLength(int seconds)
 		{
 			matchLength.Value = seconds;
@@ -80,59 +76,65 @@ namespace Lobby
 		/// <summary>
 		/// Sends one of this machine's players to everyone.
 		/// </summary>
-		public void Submit(int localIndex, string playerName, Data.Enums.TeamSide team, Data.Enums.PlayerType type)
-		{
-			SetEntry(localIndex, playerName, team, type);
-		}
+		public void Submit(int localIndex, string playerName, TeamSide team, PlayerType type)
+			=> SetEntryRpc(localIndex, new FixedString32Bytes(Shorten(playerName)), team, type);
 
-		[ServerRpc(RequireOwnership = false)]
-		private void SetEntry(int localIndex, string playerName, Data.Enums.TeamSide team, Data.Enums.PlayerType type, NetworkConnection sender = null)
+		[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+		private void SetEntryRpc(int localIndex, FixedString32Bytes playerName, TeamSide team, PlayerType type, RpcParams rpcParams = default)
 		{
-			if (sender == null || localIndex < 0 || localIndex >= MaxLocalPlayers)
+			if (localIndex < 0 || localIndex >= MaxLocalPlayers)
 				return;
 
-			entries[Key(sender.ClientId, localIndex)] = new LobbyEntry
+			var sender = rpcParams.Receive.SenderClientId;
+
+			var entry = new LobbyEntry
 			{
-				ClientId = sender.ClientId,
+				ClientId = sender,
 				LocalIndex = localIndex,
-				Name = SanitiseName(playerName, sender.ClientId, localIndex),
+				Name = playerName.IsEmpty ? new FixedString32Bytes($"Player {sender}-{localIndex + 1}") : playerName,
 				Team = team,
 				Type = type
 			};
+
+			var existing = IndexOf(sender, localIndex);
+
+			if (existing < 0)
+				entries.Add(entry);
+			else
+				entries[existing] = entry;
 		}
 
-		private string SanitiseName(string playerName, int clientId, int localIndex)
+		private string Shorten(string playerName)
 		{
-			var trimmed = playerName?.Trim();
-
-			if (string.IsNullOrEmpty(trimmed))
-				return $"Player {clientId}-{localIndex + 1}";
+			var trimmed = playerName?.Trim() ?? string.Empty;
 
 			return trimmed.Length > maxNameLength ? trimmed[..maxNameLength] : trimmed;
 		}
 
-		private void OnRemoteConnectionState(NetworkConnection connection, RemoteConnectionStateArgs args)
+		private int IndexOf(ulong clientId, int localIndex)
 		{
-			if (args.ConnectionState != RemoteConnectionState.Stopped)
-				return;
+			for (var i = 0; i < entries.Count; i++)
+			{
+				if (entries[i].ClientId == clientId && entries[i].LocalIndex == localIndex)
+					return i;
+			}
 
-			for (var i = 0; i < MaxLocalPlayers; i++)
-				entries.Remove(Key(connection.ClientId, i));
+			return -1;
 		}
 
-		private void OnEntriesChanged(SyncDictionaryOperation op, int key, LobbyEntry value, bool asServer)
-			=> RaiseChanged(asServer);
-
-		// The host gets every change twice, once as server and once as client
-		private void RaiseChanged(bool asServer)
+		private void OnClientDisconnected(ulong clientId)
 		{
-			if (asServer && IsClientStarted)
-				return;
-
-			Changed?.Invoke();
+			for (var i = entries.Count - 1; i >= 0; i--)
+			{
+				if (entries[i].ClientId == clientId)
+					entries.RemoveAt(i);
+			}
 		}
 
-		private static int Key(int clientId, int localIndex)
-			=> clientId * MaxLocalPlayers + localIndex;
+		private void OnEntriesChanged(NetworkListEvent<LobbyEntry> change)
+			=> Changed?.Invoke();
+
+		private void OnMatchLengthChanged(int previous, int current)
+			=> Changed?.Invoke();
 	}
 }

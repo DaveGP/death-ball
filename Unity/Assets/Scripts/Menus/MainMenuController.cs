@@ -3,12 +3,10 @@ using System.Linq;
 using System.Text;
 using Data.Enums;
 using DependencyInjection;
-using FishNet;
-using FishNet.Managing;
-using FishNet.Transporting;
 using Lobby;
 using Match;
 using Players;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -17,17 +15,14 @@ using UnityEngine.UI;
 namespace Menus
 {
 	/// <summary>
-	/// Drives the start screen and lobby of the main menu. Host starts a server and a local client,
-	/// Join connects to an address. In the lobby, every device that presses a button becomes a
-	/// local player, who picks a team with left and right and a player type with up and down.
-	/// The host sets the match length and starts the match.
+	/// Drives the start screen and lobby of the main menu. Play Local hosts with no network; Host
+	/// Online makes an online game over Unity Relay and shows its join code; Join enters a friend's
+	/// code. In the lobby, every device that presses a button becomes a local player, who picks a
+	/// team with left and right and a player type with up and down. The host sets the match length
+	/// and starts the match.
 	/// </summary>
 	public class MainMenuController : MonoBehaviour
 	{
-		private const string AddressKey = "DeathBall.LastAddress";
-
-		private const string LocalAddress = "localhost";
-
 		// How far a stick or keys must be pushed to count as a choice
 		private const float ChoiceThreshold = 0.5f;
 
@@ -39,7 +34,10 @@ namespace Menus
 		private InputField nameInput;
 
 		[SerializeField]
-		private InputField addressInput;
+		private InputField codeInput;
+
+		[SerializeField]
+		private Button localButton;
 
 		[SerializeField]
 		private Button hostButton;
@@ -88,11 +86,9 @@ namespace Menus
 		// Last stick or key direction per local player, so a choice changes once per push
 		private readonly Dictionary<int, Vector2> lastChoice = new();
 
-		private bool isConnecting;
-
 		private void Start()
 		{
-			networkManager = InstanceFinder.NetworkManager;
+			networkManager = NetworkManager.Singleton;
 
 			gameSession = networkManager.GetComponent<GameSession>();
 
@@ -104,43 +100,43 @@ namespace Menus
 				Debug.LogError($"{nameof(gameSession)} is null");
 
 			nameInput.text = LocalPlayerManager.PlayerName;
-			addressInput.text = PlayerPrefs.GetString(AddressKey, LocalAddress);
 
 			nameInput.onEndEdit.AddListener(text => LocalPlayerManager.PlayerName = text);
 
-			hostButton.onClick.AddListener(Host);
-			joinButton.onClick.AddListener(Join);
+			localButton.onClick.AddListener(PlayLocal);
+			hostButton.onClick.AddListener(HostOnline);
+			joinButton.onClick.AddListener(JoinOnline);
 			quitButton.onClick.AddListener(Quit);
+
+			// A browser tab can't close itself
+			quitButton.gameObject.SetActive(Application.platform != RuntimePlatform.WebGLPlayer);
 			matchLengthButton.onClick.AddListener(CycleMatchLength);
 			startMatchButton.onClick.AddListener(StartMatch);
 			leaveButton.onClick.AddListener(() => gameSession.Leave());
-
-			networkManager.ClientManager.OnClientConnectionState += OnClientConnectionState;
 
 			statusText.text = string.Empty;
 		}
 
 		private void OnDestroy()
 		{
-			if (networkManager != null)
-				networkManager.ClientManager.OnClientConnectionState -= OnClientConnectionState;
-
 			if (lobbyState != null)
 				lobbyState.Changed -= RefreshLobby;
 		}
 
 		private void Update()
 		{
-			var inLobby = networkManager.ClientManager.Started && networkManager.ClientManager.Connection.IsAuthenticated;
+			var inLobby = networkManager.IsListening && networkManager.IsConnectedClient;
 
 			startPanel.SetActive(!inLobby);
 			lobbyPanel.SetActive(inLobby);
 
 			if (!inLobby)
 			{
-				// A controller can host from here too. Not Enter, which also ends typing a name.
-				if (WasStartPressed(false) && !isConnecting)
-					Host();
+				statusText.text = gameSession.Status;
+
+				// A controller can start local play from here too. Not Enter, which also ends typing a name.
+				if (WasStartPressed(false) && !gameSession.IsBusy)
+					PlayLocal();
 
 				return;
 			}
@@ -149,7 +145,7 @@ namespace Menus
 
 			HandleLocalChoices();
 
-			var isHost = networkManager.IsServerStarted;
+			var isHost = networkManager.IsServer;
 
 			matchLengthButton.gameObject.SetActive(isHost);
 			startMatchButton.gameObject.SetActive(isHost);
@@ -160,29 +156,31 @@ namespace Menus
 			RefreshLobby();
 		}
 
-		private void Host()
+		private void PlayLocal()
 		{
 			LocalPlayerManager.PlayerName = nameInput.text;
 
-			isConnecting = true;
-			statusText.text = "Starting...";
-
-			networkManager.ServerManager.StartConnection();
-			networkManager.ClientManager.StartConnection();
+			gameSession.PlayLocal();
 		}
 
-		private void Join()
+		private async void HostOnline()
 		{
 			LocalPlayerManager.PlayerName = nameInput.text;
 
-			var address = string.IsNullOrWhiteSpace(addressInput.text) ? LocalAddress : addressInput.text.Trim();
+			await gameSession.HostOnline();
+		}
 
-			PlayerPrefs.SetString(AddressKey, address);
+		private async void JoinOnline()
+		{
+			LocalPlayerManager.PlayerName = nameInput.text;
 
-			isConnecting = true;
-			statusText.text = $"Connecting to {address}...";
+			if (string.IsNullOrWhiteSpace(codeInput.text))
+			{
+				statusText.text = "Type in the join code your friend was given";
+				return;
+			}
 
-			networkManager.ClientManager.StartConnection(address);
+			await gameSession.JoinOnline(codeInput.text);
 		}
 
 		private static void Quit()
@@ -216,22 +214,6 @@ namespace Menus
 			lobbyState?.SetMatchLength(next);
 		}
 
-		private void OnClientConnectionState(ClientConnectionStateArgs args)
-		{
-			if (args.ConnectionState == LocalConnectionState.Started)
-			{
-				isConnecting = false;
-				statusText.text = string.Empty;
-			}
-			else if (args.ConnectionState == LocalConnectionState.Stopped)
-			{
-				if (isConnecting)
-					statusText.text = "Couldn't connect";
-
-				isConnecting = false;
-			}
-		}
-
 		private void FindLobbyState()
 		{
 			if (lobbyState != null || !ServiceLocator.TryGet(out LobbyState found))
@@ -240,7 +222,7 @@ namespace Menus
 			lobbyState = found;
 			lobbyState.Changed += RefreshLobby;
 
-			if (networkManager.IsServerStarted)
+			if (networkManager.IsServer)
 				lobbyState.SetMatchLength(matchSettings.MatchLengthSeconds);
 
 			// Everyone on this machine so far
@@ -313,7 +295,7 @@ namespace Menus
 				return;
 			}
 
-			var isHost = networkManager.IsServerStarted;
+			var isHost = networkManager.IsServer;
 
 			var seconds = lobbyState.MatchLength > 0 ? lobbyState.MatchLength : matchSettings.MatchLengthSeconds;
 
@@ -323,8 +305,10 @@ namespace Menus
 				? "Press a button on a keyboard or controller to add a player"
 				: "Left / right: team    Up / down: player type    Another controller: add a player";
 
+			var hosting = gameSession.IsOnline ? $"Hosting online - join code {gameSession.JoinCode}" : "Playing locally";
+
 			lobbyInfoText.text = isHost
-				? $"Hosting. {match}. Press Start or Enter to begin.\n{controls}"
+				? $"{hosting}. {match}. Press Start or Enter to begin.\n{controls}"
 				: $"Waiting for the host to start. {match}.\n{controls}";
 
 			homeListText.text = TeamList(TeamSide.Home);
@@ -340,7 +324,7 @@ namespace Menus
 			text.AppendLine(team == TeamSide.Home ? "HOME" : "AWAY");
 			text.AppendLine();
 
-			var localClientId = networkManager.ClientManager.Connection.ClientId;
+			var localClientId = networkManager.LocalClientId;
 
 			foreach (var entry in lobbyState.Entries.Where(e => e.Team == team).OrderBy(e => e.ClientId).ThenBy(e => e.LocalIndex))
 			{

@@ -8,12 +8,10 @@ using Character.Movement.Interfaces;
 using Data.Enums;
 using Data.Input;
 using DependencyInjection;
-using FishNet.Component.Transforming;
-using FishNet.Connection;
-using FishNet.Object;
-using FishNet.Object.Synchronizing;
 using Match;
 using Players;
+using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 
@@ -23,9 +21,10 @@ namespace Character.Networking
 	/// Runs a body's input source and sends its input to the server. Whatever drives the body,
 	/// a local human, a couch player, an online player or AI, it arrives here as an input source.
 	///
-	/// Bodies driven by a human are owned by that human's connection (the host's too), and their
-	/// input source is set on the owning client from its local players. AI bodies have no owner,
-	/// and the server sets their input source.
+	/// Whoever owns a body drives it. A remote human's body is owned by their client, which moves it
+	/// and sends its input to the server for actions; every other body is owned by the server, which
+	/// is also the host's client. The local player index says which human on the owning machine, if
+	/// any, is driving: none means AI.
 	/// </summary>
 	public class CharacterNetworkController : NetworkBehaviour, ICharacterMovementState
 	{
@@ -44,28 +43,29 @@ namespace Character.Networking
 		private LocalPlayerRegistry localPlayers;
 
 
-		private readonly SyncVar<TeamSide> team = new();
+		private readonly NetworkVariable<TeamSide> team = new();
 
-		// Which of the owning client's local players controls this body
-		private readonly SyncVar<int> localPlayerIndex = new(NoLocalPlayer);
+		// Which of the owning machine's local players controls this body
+		private readonly NetworkVariable<int> localPlayerIndex = new(NoLocalPlayer);
 
-		private readonly SyncVar<Vector3> networkVelocity = new();
+		// Written by whoever moves the body, for everyone else
+		private readonly NetworkVariable<Vector3> networkVelocity = new(writePerm: NetworkVariableWritePermission.Owner);
 
-		private readonly SyncVar<bool> networkIsGrounded = new();
+		private readonly NetworkVariable<bool> networkIsGrounded = new(writePerm: NetworkVariableWritePermission.Owner);
 
-		private readonly SyncVar<bool> networkIsDodging = new();
+		private readonly NetworkVariable<bool> networkIsDodging = new(writePerm: NetworkVariableWritePermission.Owner);
 
-		private readonly SyncVar<CharacterGait> networkGait = new();
+		private readonly NetworkVariable<CharacterGait> networkGait = new(writePerm: NetworkVariableWritePermission.Owner);
 
-		// Ticks rather than time so the owning client agrees with the server
-		private readonly SyncVar<uint> staggerEndTick = new();
+		// Server ticks rather than time, so the owning client agrees with the server
+		private readonly NetworkVariable<int> staggerEndTick = new();
 
-		private readonly SyncVar<bool> knockedOut = new();
+		private readonly NetworkVariable<bool> knockedOut = new();
 
 		// Timed effects from specials, in ticks like the stagger
-		private readonly SyncVar<uint> hasteEndTick = new();
+		private readonly NetworkVariable<int> hasteEndTick = new();
 
-		private readonly SyncVar<uint> fortifyEndTick = new();
+		private readonly NetworkVariable<int> fortifyEndTick = new();
 
 		public TeamSide Team => team.Value;
 
@@ -75,11 +75,11 @@ namespace Character.Networking
 
 		public int LocalPlayerIndex => localPlayerIndex.Value;
 
-		public bool IsStaggered => IsSpawned && TimeManager.Tick < staggerEndTick.Value;
+		public bool IsStaggered => IsSpawned && ServerTick < staggerEndTick.Value;
 
-		public bool IsHasted => IsSpawned && TimeManager.Tick < hasteEndTick.Value;
+		public bool IsHasted => IsSpawned && ServerTick < hasteEndTick.Value;
 
-		public bool IsFortified => IsSpawned && TimeManager.Tick < fortifyEndTick.Value;
+		public bool IsFortified => IsSpawned && ServerTick < fortifyEndTick.Value;
 
 		// Out for the rest of the match
 		public bool IsKnockedOut => knockedOut.Value;
@@ -88,28 +88,27 @@ namespace Character.Networking
 
 		private bool IsPlayFrozen => ServiceLocator.TryGet(out MatchState matchState) && matchState.IsPlayFrozen;
 
+		private int ServerTick => NetworkManager.ServerTime.Tick;
+
 		// Server only
 		public TeamController TeamController { get; private set; }
 
 		public Vector3 Velocity =>
-			HasInputAuthority ? movementState.Velocity : networkVelocity.Value;
+			IsOwner ? movementState.Velocity : networkVelocity.Value;
 
 		public Vector3 LocalVelocity =>
-			HasInputAuthority
+			IsOwner
 				? movementState.LocalVelocity
 				: transform.InverseTransformDirection(networkVelocity.Value);
 
 		public bool IsGrounded =>
-			HasInputAuthority ? movementState.IsGrounded : networkIsGrounded.Value;
+			IsOwner ? movementState.IsGrounded : networkIsGrounded.Value;
 
 		public bool IsDodging =>
-			HasInputAuthority ? movementState.IsDodging : networkIsDodging.Value;
+			IsOwner ? movementState.IsDodging : networkIsDodging.Value;
 
 		public CharacterGait Gait =>
-			HasInputAuthority ? movementState.Gait : networkGait.Value;
-
-		// The owner drives a human's body, the server drives a body nobody owns
-		private bool HasInputAuthority => Owner.IsValid ? IsOwner : IsServerInitialized;
+			IsOwner ? movementState.Gait : networkGait.Value;
 
 		private void Awake()
 		{
@@ -127,8 +126,24 @@ namespace Character.Networking
 
 			if (movementState == null)
 				Debug.LogError($"{nameof(movementState)} is null");
+		}
 
-			localPlayerIndex.OnChange += OnLocalPlayerIndexChanged;
+		public override void OnNetworkSpawn()
+		{
+			base.OnNetworkSpawn();
+
+			localPlayerIndex.OnValueChanged += OnLocalPlayerIndexChanged;
+
+			RefreshLocalBinding();
+		}
+
+		public override void OnNetworkDespawn()
+		{
+			base.OnNetworkDespawn();
+
+			localPlayerIndex.OnValueChanged -= OnLocalPlayerIndexChanged;
+
+			localPlayers.Release(this);
 		}
 
 		public void SetInputSource(ICharacterInputSource source)
@@ -136,7 +151,7 @@ namespace Character.Networking
 			inputSource = source ?? NullInputSource.Instance;
 		}
 
-		[Server]
+		// Server only
 		public void Initialise(TeamController teamController)
 		{
 			TeamController = teamController;
@@ -144,20 +159,20 @@ namespace Character.Networking
 			team.Value = teamController.Side;
 		}
 
-		[Server]
-		public void AssignHuman(NetworkConnection connection, int localIndex)
+		// Server only
+		public void AssignHuman(ulong clientId, int localIndex)
 		{
 			SetInputSource(null);
 
-			localPlayerIndex.Value = localIndex;
+			NetworkObject.ChangeOwnership(clientId);
 
-			GiveOwnership(connection);
+			localPlayerIndex.Value = localIndex;
 		}
 
-		[Server]
+		// Server only
 		public void AssignAI(PlayerController aiController)
 		{
-			RemoveOwnership();
+			NetworkObject.RemoveOwnership();
 
 			localPlayerIndex.Value = NoLocalPlayer;
 
@@ -165,12 +180,11 @@ namespace Character.Networking
 		}
 
 		/// <summary>
-		/// Stops the body acting for a while, whoever is driving it.
+		/// Server only. Stops the body acting for a while, whoever is driving it.
 		/// </summary>
-		[Server]
 		public void Stagger(float seconds)
 		{
-			var endTick = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+			var endTick = ServerTick + SecondsToTicks(seconds);
 
 			// A lighter hit never cuts a longer stagger short
 			if (endTick > staggerEndTick.Value)
@@ -178,28 +192,25 @@ namespace Character.Networking
 		}
 
 		/// <summary>
-		/// Faster movement and free sprinting for a while.
+		/// Server only. Faster movement and free sprinting for a while.
 		/// </summary>
-		[Server]
 		public void Haste(float seconds)
 		{
-			hasteEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+			hasteEndTick.Value = ServerTick + SecondsToTicks(seconds);
 		}
 
 		/// <summary>
-		/// An unbreakable guard for a while: blocked hits do nothing and stagger the attacker.
+		/// Server only. An unbreakable guard for a while: blocked hits do nothing and stagger the attacker.
 		/// </summary>
-		[Server]
 		public void Fortify(float seconds)
 		{
-			fortifyEndTick.Value = TimeManager.Tick + TimeManager.TimeToTicks(seconds);
+			fortifyEndTick.Value = ServerTick + SecondsToTicks(seconds);
 		}
 
 		/// <summary>
-		/// Puts the body down for the rest of the match. It drops the ball, and a human
-		/// controlling it moves to a teammate who is still standing.
+		/// Server only. Puts the body down for the rest of the match. It drops the ball, and a
+		/// human controlling it moves to a teammate who is still standing.
 		/// </summary>
-		[Server]
 		public void KnockOut()
 		{
 			if (knockedOut.Value)
@@ -210,7 +221,7 @@ namespace Character.Networking
 			TeamController.OnKnockedOut(this);
 		}
 
-		[Server]
+		// Server only
 		public void Revive()
 		{
 			knockedOut.Value = false;
@@ -227,44 +238,25 @@ namespace Character.Networking
 		}
 
 		/// <summary>
-		/// Throws the body. A human's body is thrown on their own machine, because the owner has
-		/// authority over its transform.
+		/// Server only. Throws the body, on whichever machine moves it.
 		/// </summary>
-		[Server]
 		public void Knockback(Vector3 velocity)
-		{
-			if (!Owner.IsValid || Owner.IsLocalClient)
-				GetComponent<MovementController>().ApplyKnockback(velocity);
-			else
-				OwnerKnockback(Owner, velocity);
-		}
+			=> KnockbackRpc(velocity);
 
-		[TargetRpc]
-		private void OwnerKnockback(NetworkConnection connection, Vector3 velocity)
+		[Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
+		private void KnockbackRpc(Vector3 velocity)
 		{
 			GetComponent<MovementController>().ApplyKnockback(velocity);
 		}
 
 		/// <summary>
-		/// Moves the body instantly. A human's body is moved on their own machine,
-		/// because the owner has authority over its transform.
+		/// Server only. Moves the body instantly, on whichever machine moves it.
 		/// </summary>
-		[Server]
 		public void Teleport(Vector3 position, Quaternion rotation)
-		{
-			if (!Owner.IsValid || Owner.IsLocalClient)
-				ApplyTeleport(position, rotation);
-			else
-				OwnerTeleport(Owner, position, rotation);
-		}
+			=> TeleportRpc(position, rotation);
 
-		[TargetRpc]
-		private void OwnerTeleport(NetworkConnection connection, Vector3 position, Quaternion rotation)
-		{
-			ApplyTeleport(position, rotation);
-		}
-
-		private void ApplyTeleport(Vector3 position, Quaternion rotation)
+		[Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
+		private void TeleportRpc(Vector3 position, Quaternion rotation)
 		{
 			var rigidbody = GetComponent<Rigidbody>();
 
@@ -272,10 +264,8 @@ namespace Character.Networking
 			rigidbody.position = position;
 			rigidbody.rotation = rotation;
 
-			transform.SetPositionAndRotation(position, rotation);
-
 			// Everyone else snaps rather than watching the body slide across the arena
-			GetComponent<NetworkTransform>().Teleport();
+			GetComponent<NetworkTransform>().Teleport(position, rotation, transform.localScale);
 		}
 
 		/// <summary>
@@ -284,27 +274,31 @@ namespace Character.Networking
 		public void RequestSwitch()
 		{
 			if (IsOwner)
-				ServerRequestSwitch();
+				RequestSwitchRpc();
 		}
 
-		[ServerRpc]
-		private void ServerRequestSwitch()
+		[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+		private void RequestSwitchRpc()
 		{
 			TeamController.SwitchFrom(this);
 		}
 
-		public override void OnOwnershipClient(NetworkConnection prevOwner)
+		public override void OnGainedOwnership()
 		{
-			base.OnOwnershipClient(prevOwner);
+			base.OnGainedOwnership();
 
 			RefreshLocalBinding();
 		}
 
-		private void OnLocalPlayerIndexChanged(int previous, int next, bool asServer)
+		public override void OnLostOwnership()
 		{
-			if (!asServer)
-				RefreshLocalBinding();
+			base.OnLostOwnership();
+
+			RefreshLocalBinding();
 		}
+
+		private void OnLocalPlayerIndexChanged(int previous, int next)
+			=> RefreshLocalBinding();
 
 		// Ownership and the local player index can arrive in either order, so both call this
 		private void RefreshLocalBinding()
@@ -318,29 +312,26 @@ namespace Character.Networking
 			localPlayers.Release(this);
 
 			// The server keeps the AI source it set
-			if (!IsServerInitialized)
+			if (!IsServer)
 				SetInputSource(null);
 		}
 
 		private void FixedUpdate()
 		{
-			if (!IsSpawned || !HasInputAuthority)
+			if (!IsSpawned || !IsOwner)
 				return;
 
 			var characterInput = inputSource.ConsumeCharacterInput();
 
-			if (IsServerInitialized)
-			{
-				ProcessInput(characterInput);
-			}
-			else
-			{
-				SendInputToServer(characterInput);
-			}
+			ProcessInput(characterInput);
+
+			// The owner moves the body; the server runs its actions too, since it decides hits and the ball
+			if (!IsServer)
+				SendInputRpc(characterInput);
 		}
 
-		[ServerRpc(RunLocally = true)]
-		private void SendInputToServer(CharacterInput characterInput)
+		[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+		private void SendInputRpc(CharacterInput characterInput)
 		{
 			ProcessInput(characterInput);
 		}
@@ -352,18 +343,16 @@ namespace Character.Networking
 
 		private void LateUpdate()
 		{
-			if (!IsServerInitialized)
+			if (!IsSpawned || !IsOwner)
 				return;
 
-			UpdateNetworkMovementState();
-		}
-
-		private void UpdateNetworkMovementState()
-		{
 			networkVelocity.Value = movementState.Velocity;
 			networkIsGrounded.Value = movementState.IsGrounded;
 			networkIsDodging.Value = movementState.IsDodging;
 			networkGait.Value = movementState.Gait;
 		}
+
+		private int SecondsToTicks(float seconds)
+			=> Mathf.CeilToInt(seconds * NetworkManager.NetworkConfig.TickRate);
 	}
 }
