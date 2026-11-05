@@ -32,6 +32,7 @@ death-ball/
 │
 ├── Unity/                   # The Unity Project
 ├──── Assets/                  # Unity assets and game content
+├────── ThirdParty/            # Local only: Synty/ and AssetStore/ packs (not committed, see its README)
 ├──── Packages/                # Unity package dependencies
 ├──── ProjectSettings/         # Unity configuration
 │

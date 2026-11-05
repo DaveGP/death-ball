@@ -18,6 +18,8 @@ This document is to track decisions and the reasoning behind them throughout the
 
 02/11/2026 - As on Crewfall, Synty asset packs stay in an ignored local folder to keep the repository within LFS storage limits.
 
+05/11/2026 - That folder is now `Unity/Assets/ThirdParty`, as on Witch Craft, with `Synty/` for Synty packs and `AssetStore/` for other Asset Store packs. Git tracks the folders and a README but ignores their contents: the repo is public and the packs' licences don't allow redistributing them.
+
 ## Ball Possession
 
 02/11/2026 - Catching is the same as picking up: the nearest player within reach of a loose ball below head height gets it, and the ball passes through players rather than bouncing off them. This makes interceptions automatic and keeps the server logic to one rule. Stripping the carrier staggers them, and new carriers get a second of strip immunity; in playtests without these, the carrier and the nearest defender swapped the ball every second and play never left the halfway line.

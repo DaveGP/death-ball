@@ -101,8 +101,14 @@ Unity/Data/
 # But track the Builds folder itself (keep empty folder tracked)
 !Builds/.gitkeep
 
-# Third-party Synty assets
+# Third-party asset packs (Synty, Asset Store) live in ThirdParty and stay local.
+# The folders, their metas and the README are tracked; everything dropped into them is not.
+Unity/[Aa]ssets/[Tt]hird[Pp]arty/*/*
+!Unity/[Aa]ssets/[Tt]hird[Pp]arty/*/.gitkeep
+
+# Where Synty packs land on import, before they're moved into ThirdParty
 Unity/[Aa]ssets/[Ss]ynty/
+Unity/[Aa]ssets/[Ss]ynty.meta
 
 # Package samples, re-imported from the package cache by the builders that use them (Crewfall > VR > Build VR Player)
 /Unity/Assets/Samples/
