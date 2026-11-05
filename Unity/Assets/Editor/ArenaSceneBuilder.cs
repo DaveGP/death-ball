@@ -368,8 +368,18 @@ namespace Builders
 			root.name = "Ball";
 			root.layer = LayerMask.NameToLayer("Ball");
 			root.transform.localScale = Vector3.one * 0.5f;
-			root.GetComponent<Renderer>().sharedMaterial = CreateMaterial("Ball", new Color(0.75f, 0.75f, 0.8f), 0.9f);
 			root.GetComponent<Collider>().sharedMaterial = CreateBallPhysicsMaterial();
+
+			// The root keeps the physics and networking; what you see is a child, so it can sit in a carrier's hands
+			Object.DestroyImmediate(root.GetComponent<MeshRenderer>());
+			Object.DestroyImmediate(root.GetComponent<MeshFilter>());
+
+			var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+			visual.name = "Visual";
+			visual.layer = root.layer;
+			Object.DestroyImmediate(visual.GetComponent<Collider>());
+			visual.transform.SetParent(root.transform, false);
+			visual.GetComponent<Renderer>().sharedMaterial = CreateMaterial("Ball", new Color(0.75f, 0.75f, 0.8f), 0.9f);
 
 			var rigidbody = root.AddComponent<Rigidbody>();
 			rigidbody.mass = 4f;
@@ -385,6 +395,8 @@ namespace Builders
 
 			root.AddComponent<NetworkRigidbody>();
 			root.AddComponent<Ball>();
+
+			SetSerializedReference(root.AddComponent<BallVisual>(), "visual", visual.transform);
 
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, BallPrefabPath);
 

@@ -81,12 +81,11 @@ namespace Builders
 		// NGO tells prefabs apart across machines by a hash it makes when it validates a prefab asset
 		// in the editor. A builder's prefab starts as a plain scene object, so NGO either never hashes
 		// it (batch mode) or hashes the temporary object, giving every prefab the same id. This hashes
-		// the saved asset's GUID and file id instead, which are unique and the same on every machine.
+		// the saved asset with NGO's own formula, so later validations in any editor get the same value;
+		// if they differed, editors and builds would disagree and refuse to connect.
 		private static void GenerateObjectId(NetworkObject networkObject)
 		{
-			AssetDatabase.TryGetGUIDAndLocalFileIdentifier(networkObject, out var guid, out long localId);
-
-			var assetId = $"{guid}-{localId}";
+			var assetId = GlobalObjectId.GetGlobalObjectIdSlow(networkObject).ToString();
 
 			var hash = (uint)typeof(NetworkObject).Assembly
 				.GetType("Unity.Netcode.XXHash")

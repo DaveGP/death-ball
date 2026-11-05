@@ -90,7 +90,8 @@ AI runs only on the server. Because it goes through the same motor code as human
 * **Couch players online** - several local players on one client each get their own owned body. A client can own more than one character.
 * **Local play** - solo and couch play run as host on `OfflineTransport`, a transport that never opens a connection, so offline and online share one code path. That also works in the browser, which can't listen for connections.
 * **Online play** - Multiplayer Services sessions over Unity Relay with secure WebSockets, so browser and desktop players can play together without anyone running a server. The host gets a join code to share. See [Main Menu and Lobby](MainMenu.md).
-* **Prefab ids** - the builders make prefabs from scratch, so `NetworkManagerBuilder` gives each networked prefab an id hashed from its asset GUID and file id, and lists them all in `Assets/Prefabs/NetworkPrefabs.asset`.
+* **Prefab ids** - the builders make prefabs from scratch, so `NetworkManagerBuilder` hashes each saved prefab with NGO's own formula, so that later validation in any editor gets the same value, and lists them all in `Assets/Prefabs/NetworkPrefabs.asset`.
+* **The carried ball** - the ball's networked position goes from the carrier's machine to the server and back, so it trails a running carrier. `BallVisual` draws a carried ball at the carrier's hands on every machine instead; the physics and networking stay on the root object.
 * Later: client-side prediction for responsive hits against remote bodies, and server authority for anti-cheat.
 
 ## Match Systems
