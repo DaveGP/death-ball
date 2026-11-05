@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Utilities;
-using Controls;
+using GameInput;
 using Data.Enums;
 using Data.Input;
 

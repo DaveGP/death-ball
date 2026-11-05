@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using Character.Input;
-using Controls;
+using GameInput;
 using Data.Enums;
 using DependencyInjection;
 using Match;
