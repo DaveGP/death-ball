@@ -101,6 +101,7 @@ Additional documentation can be found in the `Documentation` folder.
 * [Roadmap](Documentation/Roadmap.md)
 * [Decisions](Documentation/Decisions.md)
 * [Main Menu and Lobby](Documentation/MainMenu.md)
+* [Teams](Documentation/Teams.md)
 
 ## Credits
 
