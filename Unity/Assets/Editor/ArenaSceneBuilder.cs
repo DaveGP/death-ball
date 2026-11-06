@@ -201,6 +201,15 @@ namespace Builders
 			if (playerType.Shield)
 				visuals.Add(CreateVisual(PrimitiveType.Cube, "Shield", root.transform, new Vector3(0f, 1.05f, playerType.BodyScale.z / 2f + 0.08f), new Vector3(0.75f, 0.9f, 0.1f), material));
 
+			var art = root.AddComponent<CharacterArt>();
+			SetSerializedArray(art, "greyBox", visuals.ToArray());
+
+			var marker = CreateVisual(PrimitiveType.Cylinder, "Team Marker", root.transform, Vector3.up * 0.02f, new Vector3(0.95f, 0.01f, 0.95f), CreateMaterial("Team Marker", Color.white, unlit: true));
+			marker.gameObject.SetActive(false);
+			SetSerializedReference(art, "marker", marker.gameObject);
+
+			visuals.Add(marker);
+
 			var teamColour = root.AddComponent<TeamColour>();
 			SetSerializedArray(teamColour, "renderers", visuals.ToArray());
 

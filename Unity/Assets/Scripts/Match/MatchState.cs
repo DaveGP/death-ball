@@ -1,5 +1,6 @@
 using System;
 using Data.Enums;
+using Data.ScriptableObjects;
 using DependencyInjection;
 using Unity.Collections;
 using Unity.Netcode;
@@ -16,14 +17,23 @@ namespace Match
 	/// </summary>
 	public class MatchState : NetworkBehaviour
 	{
+		public const int NoTeam = -1;
+
 		private readonly NetworkVariable<int> homeScore = new();
 
 		private readonly NetworkVariable<int> awayScore = new();
+
+		// Which of the roster's teams each side is playing as this match, or none without a roster
+		private readonly NetworkVariable<int> homeTeam = new(NoTeam);
+
+		private readonly NetworkVariable<int> awayTeam = new(NoTeam);
 
 		private readonly NetworkVariable<MatchPhase> phase = new();
 
 		// Whole seconds are plenty for the HUD and keep the clock from sending every tick
 		private readonly NetworkVariable<int> secondsRemaining = new();
+
+		private TeamRoster roster;
 
 		/// <summary>
 		/// Raised on every client for a banner: a headline, the detail under it, and how long to show it.
@@ -45,9 +55,20 @@ namespace Match
 		public int ScoreFor(TeamSide team)
 			=> team == TeamSide.Home ? homeScore.Value : awayScore.Value;
 
+		public int TeamIndexFor(TeamSide side)
+			=> side == TeamSide.Home ? homeTeam.Value : awayTeam.Value;
+
+		/// <summary>
+		/// The team a side is playing as, or just the side if there isn't a roster.
+		/// </summary>
+		public string NameFor(TeamSide side)
+			=> roster != null ? roster.NameOf(TeamIndexFor(side)) ?? side.ToString() : side.ToString();
+
 		public override void OnNetworkSpawn()
 		{
 			base.OnNetworkSpawn();
+
+			roster = TeamRoster.Load();
 
 			ServiceLocator.Register(this);
 		}
@@ -72,14 +93,20 @@ namespace Match
 		}
 
 		// Server only
-		public void StartMatch(int seconds)
+		public void StartMatch(int seconds, int home, int away, float bannerDuration)
 		{
 			homeScore.Value = 0;
 			awayScore.Value = 0;
 
+			homeTeam.Value = home;
+			awayTeam.Value = away;
+
 			phase.Value = MatchPhase.Playing;
 
 			secondsRemaining.Value = seconds;
+
+			if (home != NoTeam)
+				Announce(NameFor(TeamSide.Home).ToUpper(), $"vs {NameFor(TeamSide.Away).ToUpper()}", bannerDuration);
 		}
 
 		// Server only
@@ -97,7 +124,7 @@ namespace Match
 			else
 				awayScore.Value += points;
 
-			Announce($"{team.ToString().ToUpper()} SCORES", $"{description}  +{points}", bannerDuration);
+			Announce($"{NameFor(team).ToUpper()} SCORES", $"{description}  +{points}", bannerDuration);
 		}
 
 		// Server only
@@ -113,7 +140,7 @@ namespace Match
 		{
 			phase.Value = MatchPhase.Ended;
 
-			Announce($"{winner.ToString().ToUpper()} WINS", reason, bannerDuration);
+			Announce($"{NameFor(winner).ToUpper()} WINS", reason, bannerDuration);
 		}
 
 		private void Announce(string headline, string detail, float duration)

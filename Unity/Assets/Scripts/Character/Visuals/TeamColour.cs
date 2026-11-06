@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Character.Visuals
 {
 	/// <summary>
-	/// Tints a grey-box body by team until there are real character models, and greys it out when knocked out.
+	/// Tints a body by its side and greys it out when knocked out: the grey-box shapes, or just the marker under a model.
 	/// </summary>
 	public class TeamColour : MonoBehaviour
 	{

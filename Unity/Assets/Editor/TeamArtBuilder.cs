@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Data.ScriptableObjects;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
@@ -10,7 +12,7 @@ namespace Builders
 {
 	/// <summary>
 	/// Makes each team's own copy of its Synty character models (see Documentation/Teams.md): one prefab per
-	/// role in a folder per team, scaled to read as that role and recoloured into the team's colours. The
+	/// role in a folder per team, scaled to read as that role, animated and recoloured into the team's colours. The
 	/// packs colour everything from one atlas texture, so each team gets its own recoloured copy of it, with
 	/// a table of which atlas colours to replace. Skin isn't in the tables, so it stays as it is.
 	/// The output sits in ThirdParty, which git ignores
@@ -27,6 +29,17 @@ namespace Builders
 		// Relative to the Thrower, as the grey-box capsules were: Bruisers wide, Runners slim and tall
 		private static readonly Vector3 BruiserScale = new(1.33f, 1.05f, 1.33f);
 		private static readonly Vector3 RunnerScale = new(0.8f, 1.05f, 0.8f);
+
+		private const string Locomotion = "Assets/Synty/AnimationBaseLocomotion/Animations/Polygon";
+
+		private const string SpeedParameter = "Speed";
+
+		// Which models use the feminine animation set
+		private static readonly string[] Feminine = { "Female", "Chr_Cat" };
+
+		private static AnimatorController masculine;
+
+		private static AnimatorController feminine;
 
 		private const string BaseMap = "_BaseMap";
 
@@ -46,6 +59,7 @@ namespace Builders
 
 		private sealed class Team
 		{
+			public string Name;
 			public string Folder;
 			public string Pack;
 			public string[] Members; // Bruiser, Runner, Thrower, Enforcer
@@ -62,6 +76,7 @@ namespace Builders
 		{
 			new()
 			{
+				Name = "The Ninth Life",
 				Folder = "NinthLife",
 				Pack = CyberCity,
 				Members = new[] { "SM_Chr_MurderKitten_01", "SM_Chr_Cat_01", "SM_Chr_Mercenary_Female_01", "SM_Chr_Mercenary_Male_01" },
@@ -77,6 +92,7 @@ namespace Builders
 			},
 			new()
 			{
+				Name = "The Recalled",
 				Folder = "Recalled",
 				Pack = CyberCity,
 				Members = new[] { "SM_Chr_PleasureBot_Male_01", "SM_Chr_Robot_Female_01", "SM_Chr_Robot_Mercenary_01", "SM_Chr_Robot_Damaged_01" },
@@ -96,6 +112,7 @@ namespace Builders
 			},
 			new()
 			{
+				Name = "Halcyon Blue Chips",
 				Folder = "HalcyonBlueChips",
 				Pack = SciFiCity,
 				Members = new[] { "Character_Cop_01", "Character_Rich_Female_01", "Character_Rich_Male_01", "Character_Android_Female_01" },
@@ -112,6 +129,7 @@ namespace Builders
 			},
 			new()
 			{
+				Name = "Local 66",
 				Folder = "Local66",
 				Pack = SciFiCity,
 				Members = new[] { "Character_Garbage_Male_01", "Character_Junky_Female_01", "Character_Junky_Male_01", "Character_Medical_Male_01" },
@@ -127,6 +145,7 @@ namespace Builders
 			},
 			new()
 			{
+				Name = "Order of the Last Ring",
 				Folder = "OrderOfTheLastRing",
 				Pack = SciFiCity,
 				Members = new[] { "Character_Muscle_Male_01", "Character_CyborgNinja_01", "Character_Alien_Male_01", "Character_Monk_Male_01" },
@@ -152,12 +171,85 @@ namespace Builders
 				return;
 			}
 
+			var animation = EnsureFolder(OutputRoot, "Animation");
+
+			masculine = BuildLocomotion("Masc", "Masculine", animation);
+			feminine = BuildLocomotion("Femn", "Feminine", animation);
+
+			if (masculine == null || feminine == null)
+				return;
+
 			foreach (var team in Teams)
 				BuildTeam(team);
+
+			BuildRoster();
 
 			AssetDatabase.SaveAssets();
 
 			Debug.Log($"{nameof(TeamArtBuilder)}: built {Teams.Length} teams in {OutputRoot}");
+		}
+
+		// Idle, walk, run and sprint, blended by how fast the body is going at the speeds the game moves them
+		private static AnimatorController BuildLocomotion(string suffix, string folder, string output)
+		{
+			var path = $"{output}/Locomotion_{suffix}.controller";
+
+			AssetDatabase.DeleteAsset(path);
+
+			var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+			controller.AddParameter(SpeedParameter, AnimatorControllerParameterType.Float);
+
+			controller.CreateBlendTreeInController("Locomotion", out var tree);
+			tree.blendType = BlendTreeType.Simple1D;
+			tree.blendParameter = SpeedParameter;
+			tree.useAutomaticThresholds = false;
+
+			foreach (var (clip, speed) in new[]
+			{
+				($"Idle/A_Idle_Standing_{suffix}", 0f),
+				($"Locomotion/Walk/A_Walk_F_{suffix}", 2.5f),
+				($"Locomotion/Run/A_Run_F_{suffix}", 5.5f),
+				($"Locomotion/Sprint/A_Sprint_F_{suffix}", 8f),
+			})
+			{
+				var clipPath = $"{Locomotion}/{folder}/{clip}.fbx";
+				var motion = AssetDatabase.LoadAllAssetsAtPath(clipPath).OfType<AnimationClip>().FirstOrDefault(candidate => !candidate.name.StartsWith("__"));
+
+				if (motion == null)
+				{
+					Debug.LogError($"{nameof(TeamArtBuilder)}: {clipPath} not found. It needs the Base Locomotion pack.");
+					return null;
+				}
+
+				tree.AddChild(motion, speed);
+			}
+
+			return controller;
+		}
+
+		// In a Resources folder because the game can't refer to anything in the ignored packs directly
+		private static void BuildRoster()
+		{
+			var folder = EnsureFolder(OutputRoot, "Resources");
+			var path = $"{folder}/TeamRoster.asset";
+
+			var roster = AssetDatabase.LoadAssetAtPath<TeamRoster>(path);
+
+			if (roster == null)
+			{
+				roster = ScriptableObject.CreateInstance<TeamRoster>();
+				AssetDatabase.CreateAsset(roster, path);
+			}
+
+			roster.Set(Teams.Select(team => new TeamRoster.Team
+			{
+				Name = team.Name,
+				Players = team.Members
+					.Select((member, role) => AssetDatabase.LoadAssetAtPath<GameObject>($"{OutputRoot}/{team.Folder}/{(Role)role}_{member}.prefab"))
+					.ToArray(),
+			}).ToArray());
+
+			EditorUtility.SetDirty(roster);
 		}
 
 		private static void BuildTeam(Team team)
@@ -343,6 +435,9 @@ namespace Builders
 			{
 				if (animator.avatar != null)
 					animator.avatar = CopiedAsset<Avatar>(animator.avatar, models);
+
+				animator.runtimeAnimatorController = Feminine.Any(name => member.Contains(name)) ? feminine : masculine;
+				animator.applyRootMotion = false;
 			}
 
 			foreach (var skinned in copy.GetComponentsInChildren<SkinnedMeshRenderer>(true))

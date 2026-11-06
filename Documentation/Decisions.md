@@ -93,3 +93,7 @@ The same test found that NGO recalculates a prefab's hash whenever the editor va
 ## Home grounds reskin a copy of the Arena
 
 06/11/2026 - The Night Market is made by a tool that copies the generated Arena scene, then swaps materials and adds scenery outside the walls. That keeps the rules identical to the Arena without changing any game code, and the scene stays out of the public repo because it depends on the Synty packs. The cost is that a change to the Arena needs each home ground rebuilt. The game camera shaped the layout: it never sees the sky, so scenery south of the pitch has to stay low. Scenery casts no shadows, which took a match from about 400k triangles to about 45k with one player.
+
+## Teams are picked by the server and drawn on each machine
+
+06/11/2026 - The server picks two teams for each match and shares two indexes through `MatchState`. Each machine then swaps its own models in, so team changes need no respawning and nothing about the art is networked. The roster is made by the art tool and loaded from a Resources folder, because committed code and scenes can't refer to the ignored packs, and that makes the teams optional: without a roster the game runs with grey-box bodies. Everything in the roster goes into any build made with it, whichever teams get picked. Markers under players keep the Home red and Away blue that the rings use, since team colours can be close and don't say which ring is whose.

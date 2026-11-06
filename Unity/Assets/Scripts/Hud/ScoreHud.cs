@@ -36,7 +36,7 @@ namespace Hud
 				return;
 			}
 
-			scoreText.text = $"HOME  {matchState.ScoreFor(TeamSide.Home)}  -  {matchState.ScoreFor(TeamSide.Away)}  AWAY";
+			scoreText.text = $"{matchState.NameFor(TeamSide.Home).ToUpper()}  {matchState.ScoreFor(TeamSide.Home)}  -  {matchState.ScoreFor(TeamSide.Away)}  {matchState.NameFor(TeamSide.Away).ToUpper()}";
 
 			clockText.text = ClockText();
 

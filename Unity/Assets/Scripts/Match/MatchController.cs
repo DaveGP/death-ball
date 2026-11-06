@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Linq;
 using Data.Enums;
+using Data.ScriptableObjects;
 using DependencyInjection;
 using Unity.Netcode;
 using UnityEngine;
@@ -41,6 +42,9 @@ namespace Match
 
 		[SerializeField]
 		private float suddenDeathBanner = 3f;
+
+		[SerializeField]
+		private float teamsBanner = 3f;
 
 		// How long the result stays up before the next match starts
 		[SerializeField]
@@ -124,14 +128,34 @@ namespace Match
 
 			timeRemaining = matchLength;
 
-			matchState.StartMatch(Mathf.CeilToInt(matchLength));
+			var (home, away) = PickTeams();
+
+			matchState.StartMatch(Mathf.CeilToInt(matchLength), home, away, teamsBanner);
 
 			Kickoff();
 		}
 
+		// Two different teams, new for each match
+		private static (int Home, int Away) PickTeams()
+		{
+			var roster = TeamRoster.Load();
+
+			if (roster == null || roster.Count < 2)
+				return (MatchState.NoTeam, MatchState.NoTeam);
+
+			var home = Random.Range(0, roster.Count);
+			var away = Random.Range(0, roster.Count - 1);
+
+			if (away >= home)
+				away++;
+
+			return (home, away);
+		}
+
 		private void FixedUpdate()
 		{
-			if (ball == null || !IsInPlay || resettingAfterGoal)
+			// The ball can outlive the network for a tick while the session shuts down
+			if (ball == null || !ball.IsSpawned || !IsInPlay || resettingAfterGoal)
 				return;
 
 			if (CheckForKnockout())

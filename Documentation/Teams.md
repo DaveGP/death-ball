@@ -1,6 +1,6 @@
 # Teams
 
-Five proposed teams built from the Synty packs in `Unity/Assets/ThirdParty/Synty` (POLYGON Cyber City and POLYGON SciFi City). None of this is in the game yet. Each team uses models from one pack so its art style stays consistent, and no model is used twice.
+Five proposed teams built from the Synty packs in `Unity/Assets/ThirdParty/Synty` (POLYGON Cyber City and POLYGON SciFi City). Each match picks two of them at random, on machines that have the packs. Each team uses models from one pack so its art style stays consistent, and no model is used twice.
 
 | Team | Identity | Colours | Pack | Style | Star |
 | --- | --- | --- | --- | --- | --- |
@@ -93,11 +93,19 @@ After the collapse, a monastic order concluded that the ring is a perfect circle
 * **Scale:** based on the old grey-box proportions. With the Thrower as 1, Bruisers are 1.33 wide and 1.05 tall, and Runners are 0.8 wide and 1.05 tall. Throwers and Enforcers aren't scaled. The scale is on each prefab's root, so the whole posed body stretches, including stride and arm swing.
 * **Colours:** the packs colour everything from one atlas, so each team has a table in the tool of which atlas colours to replace, plus an optional glow colour. Skin isn't in the tables, so it stays as it is, including the Alien's blue. A colour in a table changes on every player on that team who uses it. Team atlases import at up to 2048 px, half the size of Cyber City's originals.
 
-These prefabs aren't used by the game yet. The art hasn't been tested in a match, though Synty's run animation does retarget onto the scaled Bruisers and Runners.
+The tool also makes an idle, walk, run and sprint Animator from Synty's Base Locomotion pack, and the `TeamRoster` asset the game loads the teams from.
+
+## In a match
+
+* **Picking teams:** the server picks two different teams at random for every match, including the automatic rematch, and shares the choice through `MatchState`. A banner shows the teams at kickoff, and the score and other banners use their names.
+* **Models:** `CharacterArt` on each body shows the model for its role and hides the grey-box shapes. Knocked out models fall over.
+* **Sides:** a disc under each player shows Home in red and Away in blue, matching the rings, and is bigger under a body a human controls. It turns grey on a knockout.
+* **Without the packs:** there's no roster, so matches are Home against Away with grey-box bodies. A fresh clone still plays.
+* **Not animated:** attacks, blocks, dodges and specials have no animation yet, because the Base Locomotion pack only covers movement. Strafing and running backwards play the forward animations.
 
 ## Home grounds
 
-**The Night Market** is built. **Death Ball > Build Night Market Arena** ([NightMarketBuilder.cs](../Unity/Assets/Editor/NightMarketBuilder.cs)) makes it at `Unity/Assets/ThirdParty/Synty/DeathBallArenas/NightMarket/NightMarket.unity`, from the current Arena scene. Run **Build Arena Scene** first if that has changed. Git ignores the scene, like the packs it uses. To play it, open the scene and press Play. It isn't in the menu or the web build yet, because the game only loads the scene called Arena.
+**The Night Market** is built. **Death Ball > Build Night Market Arena** ([NightMarketBuilder.cs](../Unity/Assets/Editor/NightMarketBuilder.cs)) makes it at `Unity/Assets/ThirdParty/Synty/DeathBallArenas/NightMarket/NightMarket.unity`, from the current Arena scene. Run **Build Arena Scene** first if that has changed. Git ignores the scene, like the packs it uses. To play it, open the scene and press Play. It isn't in the menu or the web build yet, because the game only loads the scene called Arena, so matches play there whichever teams are picked.
 
 * **Gameplay:** it's a copy of the Arena, with the same layout, colliders, spawn points and hazard timings. Only materials and hazard colours change inside the walls. Scenery has no colliders and stays outside the walls.
 * **Hazards:** they use unlit materials, so their colours stay readable in the dark. Electric walls are dark bars that flash yellow and turn bright cyan. Vents are kitchen grates that flash amber and glow orange with a steam blast. Barriers are yellow hazard-striped shutters.
@@ -160,7 +168,6 @@ Theme: a serene monastery courtyard floating above the clouds, in rust red and c
 ## Before building these
 
 * **Not tested in the game:** all but one of the packs' 39 character models report a humanoid rig, so they should work with shared animations, but none has been animated yet. `SM_Chr_Fancy_Bot_01`, the top-hatted bot, has no rig, so it isn't used.
-* **Telling teams apart:** Bruisers and Runners now read through their build, and each team through its colours, but those aren't enforced in play. Some teams are also close: the Ninth Life and Local 66 both use yellow, for example, and two players from the same team can't be told from rival copies in a mirror match. Matches may still need team markers, such as a coloured ring under each player.
 * **Public repo:** the packs aren't in git, so any committed scene or prefab that uses them will have missing assets on a fresh clone. The WebGL build will also grow as each level pulls in pack assets.
 
 ## Spare models
