@@ -18,8 +18,8 @@ A cat café in the undercity lost its licence when its robot cats were reclassif
 | --- | --- | --- |
 | Bruiser | `SM_Chr_MurderKitten_01` | Armoured robot cat with claws, and the tallest model at 2.16 m |
 | Runner | `SM_Chr_Cat_01` | Yellow hoodie and a glowing cat helmet |
-| Thrower | `SM_Chr_Mercenary_Female_01` | Green jacket and shorts |
-| Enforcer | `SM_Chr_Mercenary_Male_01` | White hair, face mask and black vest |
+| Thrower | `SM_Chr_Mercenary_Female_01` | Yellow jacket and shorts |
+| Enforcer | `SM_Chr_Mercenary_Male_01` | White hair, face mask, black vest and cyan sleeves |
 
 **Star: Mittens, Bruiser.** Mittens was a café greeter until a firmware update removed "gentle" from the settings menu. Mittens hasn't spoken since, only purred at frightening volume, and always saves Slam for an opponent standing beside a live hazard. Fans throw plushies onto the pitch after every knockout.
 
@@ -31,10 +31,10 @@ All four are defective products with recall notices. A loophole says a machine c
 
 | Role | Model | Look |
 | --- | --- | --- |
-| Bruiser | `SM_Chr_PleasureBot_Male_01` | Sculpted chrome body and a pink mohawk |
-| Runner | `SM_Chr_Robot_Female_01` | Yellow and grey with a visor |
-| Thrower | `SM_Chr_Robot_Mercenary_01` | Gunslinger robot in a cowboy hat |
-| Enforcer | `SM_Chr_Robot_Damaged_01` | Scarred grey robot, still standing |
+| Bruiser | `SM_Chr_PleasureBot_Male_01` | Sculpted white body with an orange mohawk and trim |
+| Runner | `SM_Chr_Robot_Female_01` | Orange and grey with a visor |
+| Thrower | `SM_Chr_Robot_Mercenary_01` | Silver and orange gunslinger robot in a cowboy hat |
+| Enforcer | `SM_Chr_Robot_Damaged_01` | Scarred grey robot with orange bands, still standing |
 
 **Star: Marshal Zero, Thrower.** Zero was built as a theme park gunslinger, then recalled for refusing to miss on purpose. Zero's Rocket special fits exactly: a perfectly aimed shot, announced with one line of pre-recorded frontier dialogue. Zero still believes the league is a town that needs cleaning up.
 
@@ -46,10 +46,10 @@ Halcyon Holdings owns the broadcast, the league and the ball's manufacturer. Its
 
 | Role | Model | Look |
 | --- | --- | --- |
-| Bruiser | `Character_Cop_01` | Black armour, the club's "Head of Compliance" |
+| Bruiser | `Character_Cop_01` | White and ice-blue armour, the club's "Head of Compliance" |
 | Runner | `Character_Rich_Female_01` | White dress with cyan trim |
 | Thrower | `Character_Rich_Male_01` | White suit and matching hat |
-| Enforcer | `Character_Android_Female_01` | Pink and white android, a company asset |
+| Enforcer | `Character_Android_Female_01` | White and ice-blue android, a company asset |
 
 **Star: Cordelia Vane, Runner.** Cordelia is the heiress to Halcyon and plays in couture she refuses to get dirty. Cordelia has had three hearts, so Second Wind is less a special than a scheduled replacement. Opponents who tackle Cordelia sometimes receive a legal letter before they've stood back up.
 
@@ -62,8 +62,8 @@ When the city stopped paying its bin workers, Local 66 went on strike, and the u
 | Role | Model | Look |
 | --- | --- | --- |
 | Bruiser | `Character_Garbage_Male_01` | Olive overalls and a gas mask |
-| Runner | `Character_Junky_Female_01` | Purple top and red striped trousers |
-| Thrower | `Character_Junky_Male_01` | Red hoodie and goggles |
+| Runner | `Character_Junky_Female_01` | Yellow top and olive striped trousers |
+| Thrower | `Character_Junky_Male_01` | Yellow hoodie, olive trousers and goggles |
 | Enforcer | `Character_Medical_Male_01` | Yellow hazmat suit and helmet |
 
 **Star: Tam Rook, Thrower.** Tam spent 20 years throwing bags into a moving truck from the back of another moving truck, so a stationary ring feels like an insult. Tam is the league's best long-range scorer, specialising in 2-point shots from behind halfway. Tam also refuses to take a free kick during a designated rest period, and there are no free kicks in Death Ball.
@@ -76,14 +76,46 @@ After the collapse, a monastic order concluded that the ring is a perfect circle
 
 | Role | Model | Look |
 | --- | --- | --- |
-| Bruiser | `Character_Muscle_Male_01` | Moustache and blade-like forearms, a repentant ex-enforcer |
-| Runner | `Character_CyborgNinja_01` | One-eyed white mask and an orange sash |
-| Thrower | `Character_Alien_Male_01` | Blue-skinned pilgrim with antennae |
+| Bruiser | `Character_Muscle_Male_01` | Moustache, metal arms and a rust vest with cyan trim, a repentant ex-enforcer |
+| Runner | `Character_CyborgNinja_01` | One-eyed white mask, cream and rust body and a rust sash |
+| Thrower | `Character_Alien_Male_01` | Blue-skinned pilgrim with antennae, in rust and cyan |
 | Enforcer | `Character_Monk_Male_01` | Rust-coloured robe with cyan trim |
 
 **Star: Abbot Kessan, Enforcer.** Kessan has kept a vow of silence for 31 seasons and has never thrown a first punch. With Iron Wall active, Kessan simply stands in the goal mouth and lets attackers hurt themselves. Kessan's only known expression is a slight nod, which has made grown Bruisers forfeit.
 
 **Home ground: The Cloister**, a monastery on a floating platform above the clouds.
+
+## Team art
+
+**Death Ball > Build Team Art** ([TeamArtBuilder.cs](../Unity/Assets/Editor/TeamArtBuilder.cs)) makes each team's models in `Unity/Assets/ThirdParty/Synty/DeathBallTeams`, with one folder per team and one prefab per role, such as `NinthLife/Bruiser_SM_Chr_MurderKitten_01.prefab`. Git ignores the output, so run the tool on any machine with the packs. Running it again gives the same result.
+
+* **Copies:** each team has its own copy of the pack's character and attachment FBX files, materials and colour atlas. Prefabs keep only that character, not the pack's other switched-off bodies. Normal and metallic maps still come from the pack, as does the Ninth Life's glow map, so the packs need to stay in the project.
+* **Scale:** based on the old grey-box proportions. With the Thrower as 1, Bruisers are 1.33 wide and 1.05 tall, and Runners are 0.8 wide and 1.05 tall. Throwers and Enforcers aren't scaled. The scale is on each prefab's root, so the whole posed body stretches, including stride and arm swing.
+* **Colours:** the packs colour everything from one atlas, so each team has a table in the tool of which atlas colours to replace, plus an optional glow colour. Skin isn't in the tables, so it stays as it is, including the Alien's blue. A colour in a table changes on every player on that team who uses it. Team atlases import at up to 2048 px, half the size of Cyber City's originals.
+
+These prefabs aren't used by the game yet. The art hasn't been tested in a match, though Synty's run animation does retarget onto the scaled Bruisers and Runners.
+
+## Home grounds
+
+**The Night Market** is built. **Death Ball > Build Night Market Arena** ([NightMarketBuilder.cs](../Unity/Assets/Editor/NightMarketBuilder.cs)) makes it at `Unity/Assets/ThirdParty/Synty/DeathBallArenas/NightMarket/NightMarket.unity`, from the current Arena scene. Run **Build Arena Scene** first if that has changed. Git ignores the scene, like the packs it uses. To play it, open the scene and press Play. It isn't in the menu or the web build yet, because the game only loads the scene called Arena.
+
+* **Gameplay:** it's a copy of the Arena, with the same layout, colliders, spawn points and hazard timings. Only materials and hazard colours change inside the walls. Scenery has no colliders and stays outside the walls.
+* **Hazards:** they use unlit materials, so their colours stay readable in the dark. Electric walls are dark bars that flash yellow and turn bright cyan. Vents are kitchen grates that flash amber and glow orange with a steam blast. Barriers are yellow hazard-striped shutters.
+* **Rings:** they keep the red and blue team colours, so you can still see whose is whose.
+* **Crowd:** spare characters baked into static meshes, so they cost no animation.
+* **Camera limits:** the game camera looks down at 55 degrees and never sees the sky, so anything south of the pitch is kept low. With one player, you mostly see the pitch and nearby stalls. The train, skyline and dragon only come into view as the camera pulls back for couch players.
+
+Measured in the Editor during a match, using a 1280 x 720 Game view:
+
+| View | Triangles | Draw calls |
+| --- | --- | --- |
+| Plain Arena, one player mid-pitch | about 30k | about 160 |
+| Night Market, one player mid-pitch | about 45k | about 200 |
+| Night Market, one player next to stalls or claw machines | 58k to 97k | 138 to 200 |
+| Night Market, camera pulled back 40 m | about 290k | about 400 |
+| Night Market, camera pulled back 60 m (the furthest two far-apart players could reach) | about 420k | about 385 |
+
+It hasn't been run in a browser, so the pulled-back views are the ones to check on the web build.
 
 ## Level prompts
 
@@ -128,7 +160,7 @@ Theme: a serene monastery courtyard floating above the clouds, in rust red and c
 ## Before building these
 
 * **Not tested in the game:** all but one of the packs' 39 character models report a humanoid rig, so they should work with shared animations, but none has been animated yet. `SM_Chr_Fancy_Bot_01`, the top-hatted bot, has no rig, so it isn't used.
-* **Telling teams apart:** Bruisers and Runners are similar sizes, at about 1.9 m to 2.2 m, so roles read mainly through their outfits. Bruisers may need scaling up slightly. The teams' colours aren't enforced either, so matches will need team markers, such as a coloured ring under each player.
+* **Telling teams apart:** Bruisers and Runners now read through their build, and each team through its colours, but those aren't enforced in play. Some teams are also close: the Ninth Life and Local 66 both use yellow, for example, and two players from the same team can't be told from rival copies in a mirror match. Matches may still need team markers, such as a coloured ring under each player.
 * **Public repo:** the packs aren't in git, so any committed scene or prefab that uses them will have missing assets on a fresh clone. The WebGL build will also grow as each level pulls in pack assets.
 
 ## Spare models

@@ -85,3 +85,11 @@ An AI test match stalled with a carrier that never moved. It turned out to be an
 05/11/2026 - Testing with added lag showed the ball trailing its carrier by 1.65 m on the carrier's own screen at a 50 ms round trip, and 2.88 m at 350 ms, because its position goes through the server and back with smoothing on each leg. The ball's visual is now a child that sits at the carrier's hands on every machine, measured at about 0.02 m at every lag. Letting go glides slowly, at about running speed: at the same speed as picking up, a ball shot on the run slid back up to 1.8 m towards its trailing position before flying forward.
 
 The same test found that NGO recalculates a prefab's hash whenever the editor validates it, so the builder's own hash could drift from the saved prefab and clients were refused with a config mismatch. The builder now uses NGO's formula.
+
+## Team art is generated from the packs
+
+06/11/2026 - Each team's models are copied, scaled and recoloured by an Editor tool into an ignored folder, rather than being committed, because the repo is public and the packs' licences don't allow redistributing them. Recolouring works on one copy of the atlas per team, using a table of colours to replace. That is one texture per team instead of one per player, which suits the web build, and a colour change is consistent across the team. The cost is that a shared atlas colour can't differ between teammates.
+
+## Home grounds reskin a copy of the Arena
+
+06/11/2026 - The Night Market is made by a tool that copies the generated Arena scene, then swaps materials and adds scenery outside the walls. That keeps the rules identical to the Arena without changing any game code, and the scene stays out of the public repo because it depends on the Synty packs. The cost is that a change to the Arena needs each home ground rebuilt. The game camera shaped the layout: it never sees the sky, so scenery south of the pitch has to stay low. Scenery casts no shadows, which took a match from about 400k triangles to about 45k with one player.
