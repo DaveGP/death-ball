@@ -753,41 +753,60 @@ namespace Builders
 			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
 			scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-			var scoreText = CreateText("Score", canvasObject.transform, 48, new Vector2(0.5f, 1f), new Vector2(0f, -50f));
-			var clockText = CreateText("Clock", canvasObject.transform, 36, new Vector2(0.5f, 1f), new Vector2(0f, -105f));
-			var bannerText = CreateText("Banner", canvasObject.transform, 72, new Vector2(0.5f, 0.5f), new Vector2(0f, 120f));
+			var root = canvasObject.transform;
+			var scoreboard = DeathBallUiArt.Rect("Scoreboard", root, Vector2.zero, Vector2.zero);
+			scoreboard.anchorMin = scoreboard.anchorMax = new Vector2(0.5f, 1f);
+			var scorePlate = DeathBallUiArt.Image("Score Plate", scoreboard, "HUD-Score", new Vector2(0f, -45f), new Vector2(1180f, 68f));
+			var scoreText = DeathBallUiArt.Text("Score", scorePlate.transform, string.Empty, 34,
+				Vector2.zero, new Vector2(176f, 62f), DeathBallUiArt.Mono);
+
+			var homeName = CreateHudTeam(scorePlate.transform, "Home", -315f, out var homeCrest);
+			var awayName = CreateHudTeam(scorePlate.transform, "Away", 315f, out var awayCrest);
+
+			var clockPlate = DeathBallUiArt.Image("Clock Plate", scoreboard, "HUD-Clock", new Vector2(0f, -101f), new Vector2(234f, 42f));
+			var clockText = DeathBallUiArt.Text("Clock", clockPlate.transform, string.Empty, 22,
+				Vector2.zero, new Vector2(220f, 36f), DeathBallUiArt.Mono);
+
+			var eventPlate = DeathBallUiArt.Image("Event Plate", root, "HUD-Event", new Vector2(0f, 120f), new Vector2(1160f, 166f));
+			var bannerText = DeathBallUiArt.Text("Banner", eventPlate.transform, string.Empty, 58,
+				new Vector2(0f, 21f), new Vector2(1070f, 76f), DeathBallUiArt.Display);
+			bannerText.resizeTextForBestFit = true;
+			bannerText.resizeTextMinSize = 35;
+			bannerText.resizeTextMaxSize = 58;
+			var detail = DeathBallUiArt.Text("Detail", eventPlate.transform, string.Empty, 25,
+				new Vector2(0f, -44f), new Vector2(1020f, 42f), DeathBallUiArt.Mono);
+
+			scoreboard.gameObject.SetActive(false);
+			eventPlate.gameObject.SetActive(false);
 
 			var hud = canvasObject.AddComponent<ScoreHud>();
 			SetSerializedReference(hud, "scoreText", scoreText);
 			SetSerializedReference(hud, "clockText", clockText);
 			SetSerializedReference(hud, "bannerText", bannerText);
+			SetSerializedReference(hud, "scoreboard", scoreboard.gameObject);
+			SetSerializedReference(hud, "homeNameText", homeName);
+			SetSerializedReference(hud, "awayNameText", awayName);
+			SetSerializedReference(hud, "homeCrest", homeCrest);
+			SetSerializedReference(hud, "awayCrest", awayCrest);
+			SetSerializedReference(hud, "eventPlate", eventPlate.gameObject);
+			SetSerializedReference(hud, "bannerDetailText", detail);
 		}
 
-		private static Text CreateText(string name, Transform parent, int fontSize, Vector2 anchor, Vector2 position)
+		private static Text CreateHudTeam(Transform plate, string side, float x, out Image crest)
 		{
-			var textObject = new GameObject(name);
+			crest = DeathBallUiArt.Image($"{side} Crest", plate, null, new Vector2(x * 1.67f, 0f), new Vector2(52f, 52f));
+			crest.preserveAspect = true;
+			crest.enabled = false;
 
-			var rectTransform = textObject.AddComponent<RectTransform>();
-			rectTransform.SetParent(parent, false);
-			rectTransform.anchorMin = anchor;
-			rectTransform.anchorMax = anchor;
-			rectTransform.anchoredPosition = position;
-			rectTransform.sizeDelta = new Vector2(1200f, fontSize * 2.5f);
-
-			var text = textObject.AddComponent<Text>();
-			text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-			text.fontSize = fontSize;
-			text.fontStyle = FontStyle.Bold;
-			text.alignment = TextAnchor.MiddleCenter;
-			text.color = Color.white;
-			text.raycastTarget = false;
-
-			textObject.AddComponent<Outline>().effectDistance = new Vector2(2f, -2f);
-
+			var text = DeathBallUiArt.Text($"{side} Team", plate, string.Empty, 36, new Vector2(x, 0f),
+				new Vector2(352f, 60f), DeathBallUiArt.Display);
+			text.resizeTextForBestFit = true;
+			text.resizeTextMinSize = 22;
+			text.resizeTextMaxSize = 36;
 			return text;
 		}
 
-		// Side is -1 for the home end of the arena and 1 for the away end
+	// Side is -1 for the home end of the arena and 1 for the away end
 		private static TeamController CreateTeam(TeamSide side, List<GameObject> lineup, float end)
 		{
 			var teamObject = new GameObject($"Team {side}");

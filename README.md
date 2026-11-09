@@ -107,6 +107,8 @@ Additional documentation can be found in the `Documentation` folder.
 
 Created by David Pearson.
 
+The UI images in `Unity/Assets/UI` (logo, menu background, panels, buttons, HUD plates, role icons and team crests) are AI-generated, made with OpenAI's ChatGPT. The fonts are not: Barlow Condensed and IBM Plex Mono are used under the SIL Open Font License, with the licence files in `Unity/Assets/UI/Fonts`.
+
 ## License
 
 The source is public to read and play, but all rights are reserved: it is not open source.
