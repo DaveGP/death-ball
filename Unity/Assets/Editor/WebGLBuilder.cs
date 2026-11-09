@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
@@ -56,9 +57,15 @@ namespace Builders
 			if (Directory.Exists(output))
 				Directory.Delete(output, true);
 
+			var scenes = new List<string> { MainMenuSceneBuilder.ScenePath, ArenaSceneBuilder.ScenePath };
+
+			// Needs the art packs, so it's only there on a machine that has them
+			if (File.Exists(NightMarketBuilder.ScenePath))
+				scenes.Add(NightMarketBuilder.ScenePath);
+
 			var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
 			{
-				scenes = new[] { MainMenuSceneBuilder.ScenePath, ArenaSceneBuilder.ScenePath },
+				scenes = scenes.ToArray(),
 				locationPathName = output,
 				target = BuildTarget.WebGL,
 				options = BuildOptions.None

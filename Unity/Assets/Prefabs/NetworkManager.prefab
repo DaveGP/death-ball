@@ -133,6 +133,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Lobby.GameSession
   menuSceneName: MainMenu
-  arenaSceneName: Arena
+  arenaSceneName: NightMarket
+  fallbackArenaSceneName: Arena
   lobbyStatePrefab: {fileID: 6943429169396526867, guid: e8c3af32af6a648cbb0ec421ad0a09e9, type: 3}
   maxPlayers: 8

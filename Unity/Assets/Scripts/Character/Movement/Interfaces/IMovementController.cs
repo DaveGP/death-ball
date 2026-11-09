@@ -33,6 +33,11 @@ namespace Character.Movement.Interfaces
 		public void SetCarrying(bool carrying);
 
 		/// <summary>
+		/// Sets whether the character is charging a shot, which slows them down.
+		/// </summary>
+		public void SetChargingShot(bool charging);
+
+		/// <summary>
 		/// Sets whether the character is sped up by a special.
 		/// </summary>
 		public void SetHasted(bool hasted);

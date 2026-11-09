@@ -47,6 +47,8 @@ namespace Character.Movement
 
 		private bool isCarrying;
 
+		private bool isChargingShot;
+
 		private bool isHasted;
 
 		private Vector3 knockbackVelocity;
@@ -78,6 +80,11 @@ namespace Character.Movement
 		public void SetCarrying(bool carrying)
 		{
 			isCarrying = carrying;
+		}
+
+		public void SetChargingShot(bool charging)
+		{
+			isChargingShot = charging;
 		}
 
 		public void SetHasted(bool hasted)
@@ -151,6 +158,9 @@ namespace Character.Movement
 
 			if (isCarrying)
 				speed *= stats.CarrySpeedMultiplier;
+
+			if (isChargingShot)
+				speed *= stats.ShotChargeSpeedMultiplier;
 
 			if (isHasted)
 				speed *= stats.HasteSpeedMultiplier;

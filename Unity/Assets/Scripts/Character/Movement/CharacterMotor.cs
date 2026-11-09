@@ -28,6 +28,10 @@ namespace Character.Movement
 
 		private CharacterNetworkController body;
 
+		private bool isAimingShot;
+
+		public Vector3 ShotAim { get; private set; }
+
 		private void Awake()
 		{
 			movementController = GetComponent<IMovementController>();
@@ -52,9 +56,57 @@ namespace Character.Movement
 
 		public void ProcessInput(CharacterInput characterInput)
 		{
+			actionController.UpdateShotCharge(characterInput.Action.HasFlag(CharacterAction.ChargeShot));
+
 			Move(characterInput);
 			Look(characterInput);
 			Actions(characterInput);
+
+			if (!actionController.IsChargingShot)
+				actionController.ResetShotCharge();
+		}
+
+		// The aim starts where the player is aiming or facing, then swings at a fixed rate, so
+		// keys can land between their eight directions. Move steers it if nothing is aiming.
+		public CharacterInput ResolveShotAim(CharacterInput characterInput)
+		{
+			var action = characterInput.Action;
+
+			var charging = action.HasFlag(CharacterAction.ChargeShot) && actionController.IsCarrying;
+
+			if (!charging && !action.HasFlag(CharacterAction.Shoot))
+			{
+				isAimingShot = false;
+
+				return characterInput;
+			}
+
+			if (!isAimingShot)
+				ShotAim = AimDirection(characterInput);
+			else if (charging)
+				SwingShotAim(characterInput);
+
+			isAimingShot = charging;
+
+			characterInput.Aim = new Vector2(ShotAim.x, ShotAim.z);
+
+			return characterInput;
+		}
+
+		private void SwingShotAim(CharacterInput characterInput)
+		{
+			var target = characterInput.Aim.sqrMagnitude > AimDeadZone * AimDeadZone
+				? characterInput.Aim
+				: characterInput.Move;
+
+			if (target.sqrMagnitude <= AimDeadZone * AimDeadZone)
+				return;
+
+			ShotAim = Vector3.RotateTowards(
+				ShotAim,
+				new Vector3(target.x, 0f, target.y).normalized,
+				stats.ShotAimTurnSpeed * Mathf.Deg2Rad * Time.fixedDeltaTime,
+				0f);
 		}
 
 		private void Move(CharacterInput characterInput)
@@ -64,6 +116,8 @@ namespace Character.Movement
 			HandleGait(characterInput);
 
 			movementController.SetCarrying(actionController.IsCarrying);
+
+			movementController.SetChargingShot(actionController.IsChargingShot);
 
 			movementController.SetHasted(body.IsHasted);
 
@@ -98,7 +152,7 @@ namespace Character.Movement
 			if (input == 0)
 				return CharacterGait.Idle;
 
-			if (characterInput.Action.HasFlag(CharacterAction.Sprint) && !stamina.IsEmpty)
+			if (characterInput.Action.HasFlag(CharacterAction.Sprint) && !stamina.IsEmpty && !actionController.IsChargingShot)
 				return CharacterGait.Sprint;
 
 			return input < RunThreshold

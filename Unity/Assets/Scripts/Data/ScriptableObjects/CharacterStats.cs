@@ -29,6 +29,12 @@ namespace Data.ScriptableObjects
 
 		public float TurnSpeed = 720f;
 
+		// Scales movement while charging a shot
+		public float ShotChargeSpeedMultiplier = 0.45f;
+
+		// Degrees per second the aim swings while charging a shot
+		public float ShotAimTurnSpeed = 150f;
+
 		public float DodgeSpeed = 12f;
 
 		public float DodgeDuration = 0.2f;

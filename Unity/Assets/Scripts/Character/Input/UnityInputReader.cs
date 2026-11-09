@@ -59,7 +59,11 @@ namespace Character.Input
 			if (player.Pass.WasPressedThisFrame())
 				actions |= CharacterAction.Pass;
 
-			if (player.Shoot.WasPressedThisFrame())
+			if (player.Shoot.IsPressed())
+				actions |= CharacterAction.ChargeShot;
+
+			// Fires on release, so a quick tap is an uncharged shot
+			if (player.Shoot.WasReleasedThisFrame())
 				actions |= CharacterAction.Shoot;
 
 			if (player.Attack.WasPressedThisFrame())

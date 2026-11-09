@@ -14,6 +14,7 @@ namespace Data.Enums
 
 		public const CharacterAction Continuous =
 			CharacterAction.Sprint |
-			CharacterAction.Block;
+			CharacterAction.Block |
+			CharacterAction.ChargeShot;
 	}
 }

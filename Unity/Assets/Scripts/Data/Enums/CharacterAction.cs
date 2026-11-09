@@ -26,6 +26,9 @@ namespace Data.Enums
 
 		Special = 1 << 8,
 
-		SwitchPlayer = 1 << 9
+		SwitchPlayer = 1 << 9,
+
+		// Holding Shoot. Letting go sends Shoot, which fires with whatever has charged.
+		ChargeShot = 1 << 10
 	}
 }

@@ -57,6 +57,18 @@ namespace Character.Actions
 		[SerializeField]
 		private float shootSpeed = 22f;
 
+		// A fully charged shot's speed, before the player type's throw multiplier
+		[SerializeField]
+		private float chargedShootSpeed = 36f;
+
+		// How long Shoot must be held for a full charge
+		[SerializeField]
+		private float fullChargeTime = 1f;
+
+		// How much a fully charged shot scales the ball's damage and knockback
+		[SerializeField]
+		private float chargedHitPower = 2.2f;
+
 		[SerializeField]
 		private float shootLift = 3f;
 
@@ -86,9 +98,13 @@ namespace Character.Actions
 
 		public bool IsBlocking { get; private set; }
 
+		public bool IsChargingShot { get; private set; }
+
+		public float ShotCharge { get; private set; }
+
 		private float PassSpeed => passSpeed * stats.ThrowSpeedMultiplier;
 
-		private float ShootSpeed => shootSpeed * stats.ThrowSpeedMultiplier;
+		private float ShootSpeed => Mathf.Lerp(shootSpeed, chargedShootSpeed, ShotCharge) * stats.ThrowSpeedMultiplier;
 
 		public bool IsCarrying => TryGetBall(out var ball) && ball.Carrier == body;
 
@@ -116,6 +132,20 @@ namespace Character.Actions
 		public void SetBlocking(bool blocking)
 		{
 			IsBlocking = blocking;
+		}
+
+		// Counted per input tick rather than by the clock, so the owner and the server agree
+		public void UpdateShotCharge(bool holding)
+		{
+			IsChargingShot = holding && IsCarrying;
+
+			if (IsChargingShot)
+				ShotCharge = Mathf.Min(ShotCharge + Time.fixedDeltaTime / fullChargeTime, 1f);
+		}
+
+		public void ResetShotCharge()
+		{
+			ShotCharge = 0f;
 		}
 
 		// The carrier's hands are full, they can only pass, shoot or barge
@@ -185,7 +215,9 @@ namespace Character.Actions
 
 			DrawAction(direction, 20f, Color.green);
 
-			ball.Throw(body, ShotVelocity(ball, direction));
+			ball.Throw(body, ShotVelocity(ball, direction), Mathf.Lerp(1f, chargedHitPower, ShotCharge));
+
+			body.AnnounceShot(direction, ShotCharge);
 		}
 
 		// Aiming roughly at the goal lofts the shot to arrive at ring height. The aim

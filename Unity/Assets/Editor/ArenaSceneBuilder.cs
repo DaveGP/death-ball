@@ -215,6 +215,10 @@ namespace Builders
 
 			CreateStatusBars(root.transform);
 
+			var aimLine = CreateVisual(PrimitiveType.Quad, "Shot Aim", root.transform, Vector3.zero, Vector3.one, CreateMaterial("Shot Aim", Color.white, unlit: true));
+			var aimIndicator = aimLine.gameObject.AddComponent<ShotAimIndicator>();
+			SetSerializedReference(aimIndicator, "line", aimLine);
+
 			var prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{CharacterPrefabsFolder}/{playerType.Name}.prefab");
 
 			Object.DestroyImmediate(root);

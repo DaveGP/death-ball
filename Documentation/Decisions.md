@@ -97,3 +97,15 @@ The same test found that NGO recalculates a prefab's hash whenever the editor va
 ## Teams are picked by the server and drawn on each machine
 
 06/11/2026 - The server picks two teams for each match and shares two indexes through `MatchState`. Each machine then swaps its own models in, so team changes need no respawning and nothing about the art is networked. The roster is made by the art tool and loaded from a Resources folder, because committed code and scenes can't refer to the ignored packs, and that makes the teams optional: without a roster the game runs with grey-box bodies. Everything in the roster goes into any build made with it, whichever teams get picked. Markers under players keep the Home red and Away blue that the rings use, since team colours can be close and don't say which ring is whose.
+
+## Charged shots fire on release and the owner decides the aim
+
+09/11/2026 - Shots fire when Shoot is released rather than pressed, so one button covers both a quick shot and a charged one. The cost is that a tap now fires when the button comes back up, rather than as it goes down. The aim swings at a fixed rate instead of following the input directly, because keyboard aim only has eight directions and there is no mouse aim, so a slow swing is what makes a precise shot possible with keys.
+
+The owner works out the aim and writes it into the input it sends. The server used to fall back on its own copy of the body's facing, which trails a remote owner by the round trip, so a charged shot could leave in a different direction from the line the player lined up. The charge itself is counted per input tick on both machines, so lag doesn't add power.
+
+The AI doesn't charge. Its numbers were tuned around standard shots, and a charging AI would need its own judgement about when to stand still.
+
+## The Night Market is the arena, with a fallback
+
+09/11/2026 - Matches now play in The Night Market. Its scene depends on the Synty packs and stays out of the public repo, so `GameSession` checks it can be loaded and otherwise uses the plain Arena, which is what a fresh clone gets. `WebGLBuilder` only includes the scene if it exists. The host's choice applies to everyone because all players run the same build. The cost is that web builds made without the packs play a different level.

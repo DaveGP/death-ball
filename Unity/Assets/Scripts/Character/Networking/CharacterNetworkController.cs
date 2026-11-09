@@ -1,3 +1,5 @@
+using System;
+using Character.Actions.Interfaces;
 using Character.Health;
 using Character.Specials;
 using Character.Stamina;
@@ -42,6 +44,8 @@ namespace Character.Networking
 
 		private LocalPlayerRegistry localPlayers;
 
+		private IActionController actionController;
+
 
 		private readonly NetworkVariable<TeamSide> team = new();
 
@@ -56,6 +60,12 @@ namespace Character.Networking
 		private readonly NetworkVariable<bool> networkIsDodging = new(writePerm: NetworkVariableWritePermission.Owner);
 
 		private readonly NetworkVariable<CharacterGait> networkGait = new(writePerm: NetworkVariableWritePermission.Owner);
+
+		private readonly NetworkVariable<bool> networkIsChargingShot = new(writePerm: NetworkVariableWritePermission.Owner);
+
+		private readonly NetworkVariable<float> networkShotCharge = new(writePerm: NetworkVariableWritePermission.Owner);
+
+		private readonly NetworkVariable<Vector3> networkShotAim = new(writePerm: NetworkVariableWritePermission.Owner);
 
 		// Server ticks rather than time, so the owning client agrees with the server
 		private readonly NetworkVariable<int> staggerEndTick = new();
@@ -110,9 +120,35 @@ namespace Character.Networking
 		public CharacterGait Gait =>
 			IsOwner ? movementState.Gait : networkGait.Value;
 
+		/// <summary>
+		/// Whether this body is holding the ball and charging a shot, on every machine.
+		/// </summary>
+		public bool IsChargingShot =>
+			IsOwner ? actionController.IsChargingShot : networkIsChargingShot.Value;
+
+		/// <summary>
+		/// How charged the shot is, from 0 to 1, on every machine.
+		/// </summary>
+		public float ShotCharge =>
+			IsOwner ? actionController.ShotCharge : networkShotCharge.Value;
+
+		/// <summary>
+		/// The world-space direction a charging shot is aimed, on every machine.
+		/// </summary>
+		public Vector3 ShotAim =>
+			IsOwner ? characterMotor.ShotAim : networkShotAim.Value;
+
+		/// <summary>
+		/// Raised on every machine when this body shoots, with the direction and charge. Any shot
+		/// counts, charged or not, including the AI's.
+		/// </summary>
+		public event Action<Vector3, float> ShotFired;
+
 		private void Awake()
 		{
 			localPlayers = ServiceLocator.Get<LocalPlayerRegistry>();
+
+			actionController = GetComponent<IActionController>();
 
 			characterMotor = GetComponent<ICharacterMotor>();
 
@@ -269,6 +305,18 @@ namespace Character.Networking
 		}
 
 		/// <summary>
+		/// Server only. Tells every machine this body just shot.
+		/// </summary>
+		public void AnnounceShot(Vector3 direction, float charge)
+			=> ShotFiredRpc(direction, charge);
+
+		[Rpc(SendTo.ClientsAndHost)]
+		private void ShotFiredRpc(Vector3 direction, float charge)
+		{
+			ShotFired?.Invoke(direction, charge);
+		}
+
+		/// <summary>
 		/// Asks the server to move this body's controller to a teammate.
 		/// </summary>
 		public void RequestSwitch()
@@ -321,7 +369,7 @@ namespace Character.Networking
 			if (!IsSpawned || !IsOwner)
 				return;
 
-			var characterInput = inputSource.ConsumeCharacterInput();
+			var characterInput = characterMotor.ResolveShotAim(inputSource.ConsumeCharacterInput());
 
 			ProcessInput(characterInput);
 
@@ -350,6 +398,11 @@ namespace Character.Networking
 			networkIsGrounded.Value = movementState.IsGrounded;
 			networkIsDodging.Value = movementState.IsDodging;
 			networkGait.Value = movementState.Gait;
+			networkIsChargingShot.Value = actionController.IsChargingShot;
+			networkShotCharge.Value = actionController.ShotCharge;
+
+			if (actionController.IsChargingShot)
+				networkShotAim.Value = characterMotor.ShotAim;
 		}
 
 		private int SecondsToTicks(float seconds)
