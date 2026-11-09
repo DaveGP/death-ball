@@ -40,6 +40,7 @@ A match is won by whichever happens first:
 * The carrier moves slightly slower and cannot attack. They can pass, shoot, or barge (shoulder charge).
 * **Overcharge**: the ball heats up the longer one player holds it. After a few seconds it starts damaging the carrier, which stops anyone holding on to the ball to run the clock down.
 * A thrown ball that hits an opponent hard enough damages and staggers them. Throwing the ball is also an attack.
+* **Charged shots**: hold shoot to charge and release to fire. A tap is a standard shot. Charging builds speed and hitting power for a second, and lets the carrier swing their aim, but they slow to a crawl, can't sprint and are an easy target. Everyone can see the aim line, so defenders get a warning.
 
 ## Combat
 

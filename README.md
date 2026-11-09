@@ -79,7 +79,7 @@ Press any button on a keyboard or gamepad to join. Up to 4 local players; by def
 | Aim            | Arrow keys       | Right stick        |
 | Sprint         | Left Shift       | Left stick press   |
 | Pass           | E                | A / Cross          |
-| Shoot          | F                | Right trigger      |
+| Shoot          | F (hold to charge and aim, release to fire) | Right trigger (hold to charge and aim, release to fire) |
 | Attack         | Left mouse       | X / Square         |
 | Heavy attack   | R                | Y / Triangle       |
 | Tackle         | C                | B / Circle         |

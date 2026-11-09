@@ -99,6 +99,9 @@ namespace Match
 
 		private bool touchedGroundSinceThrow;
 
+		// Scales the damage and knockback of the throw now in flight
+		private float hitPower = 1f;
+
 		public CharacterNetworkController Carrier
 			=> carrier.Value.TryGet(out CharacterNetworkController body) ? body : null;
 
@@ -171,7 +174,7 @@ namespace Match
 		}
 
 		// Server only
-		public void Throw(CharacterNetworkController thrower, Vector3 velocity)
+		public void Throw(CharacterNetworkController thrower, Vector3 velocity, float power = 1f)
 		{
 			if (Carrier != thrower)
 				return;
@@ -181,6 +184,8 @@ namespace Match
 			SetLoose();
 
 			BlockPickup(thrower, throwerPickupDelay);
+
+			hitPower = power;
 
 			Thrower = thrower;
 			ThrowOrigin = thrower.transform.position;
@@ -342,7 +347,10 @@ namespace Match
 		// A shot that hits someone hurts them and bounces off, and can no longer score
 		private bool TryHit(CharacterNetworkController body)
 		{
-			var result = body.GetComponent<CharacterHealth>().TakeHit(ballHit, Thrower);
+			var hit = ballHit;
+			hit.Damage = Mathf.RoundToInt(hit.Damage * hitPower);
+
+			var result = body.GetComponent<CharacterHealth>().TakeHit(hit, Thrower);
 
 			if (result == HitResult.Missed)
 				return false;
@@ -352,7 +360,7 @@ namespace Match
 				var push = rigidbody.linearVelocity;
 				push.y = 0f;
 
-				body.Knockback(push.normalized * hitKnockback);
+				body.Knockback(push.normalized * (hitKnockback * hitPower));
 			}
 
 			Thrower = null;

@@ -16,6 +16,26 @@ namespace Character.Actions.Interfaces
 		public bool IsBlocking { get; }
 
 		/// <summary>
+		/// Gets whether the character is holding the ball and charging a shot.
+		/// </summary>
+		public bool IsChargingShot { get; }
+
+		/// <summary>
+		/// Gets how charged the shot is, from 0 to 1.
+		/// </summary>
+		public float ShotCharge { get; }
+
+		/// <summary>
+		/// Runs each tick. Builds up the charge while the carrier holds Shoot.
+		/// </summary>
+		public void UpdateShotCharge(bool holding);
+
+		/// <summary>
+		/// Empties the charge once it can't be fired any more.
+		/// </summary>
+		public void ResetShotCharge();
+
+		/// <summary>
 		/// Sets whether the character is blocking.
 		/// </summary>
 		public void SetBlocking(bool blocking);
@@ -41,7 +61,7 @@ namespace Character.Actions.Interfaces
 		public void OnPass(Vector3 direction);
 
 		/// <summary>
-		/// Shoots the ball in a world-space direction.
+		/// Shoots the ball in a world-space direction, with whatever has charged.
 		/// </summary>
 		public void OnShoot(Vector3 direction);
 

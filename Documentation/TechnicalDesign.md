@@ -20,7 +20,7 @@ AI Brain ───────────────────────�
 
 * `InputData` - raw per-frame input read from a device (move, look/aim, action flags).
 * `CharacterInput` - the input a character consumes in FixedUpdate. This is the only thing gameplay code reads, and it is what gets sent to the server.
-* `CharacterAction` - a flags enum split into `Continuous` (held: Sprint, Block) and `Buffered` (pressed: Pass, Shoot, Attack, HeavyAttack, Tackle, Dodge, Special, SwitchPlayer) groups. Buffered actions stay set until consumed so presses between fixed ticks are never lost.
+* `CharacterAction` - a flags enum split into `Continuous` (held: Sprint, Block, ChargeShot) and `Buffered` (pressed: Pass, Shoot, Attack, HeavyAttack, Tackle, Dodge, Special, SwitchPlayer) groups. Buffered actions stay set until consumed so presses between fixed ticks are never lost.
 * `CharacterInput.Move` and `Aim` are **world-space** directions on the XZ plane. `InputProvider` turns stick input into world space using the camera's yaw (`IInputView`), so AI can produce the same struct directly.
 
 ### Input Sources
@@ -116,6 +116,11 @@ AI runs only on the server. Because it goes through the same motor code as human
 * **Pickup and catching** are the same thing: each tick a loose ball below head height goes to the nearest body within reach. The ball doesn't collide with players, so a pass through a crowd can be intercepted by anyone it passes.
 * **Carrying** - the ball is kinematic and held in front of the carrier, who moves at `CarrySpeedMultiplier` and can't attack (tackling still works).
 * **Pass** snaps to the teammate nearest the aim (within 35°) and leads them by their velocity. **Shoot** throws hard along the aim, or facing if not aiming.
+* **Charged shots** - holding Shoot sends `ChargeShot`, and letting go sends `Shoot`, so a human's shot fires on release and a tap has no charge. The AI sends `Shoot` alone and always takes a standard shot.
+  * `ActionController` builds the charge from 0 to 1 over a second, counting input ticks so the owner and server agree. It scales shot speed from 22 to 36 m/s, and the ball's damage and knockback by up to 2.2 times. Both are set on the prefab, and speed still takes the type's `ThrowSpeedMultiplier`. Losing the ball or being staggered cancels the charge.
+  * `CharacterMotor.ResolveShotAim` runs on the owner. The aim starts at the aim input or facing, then swings towards the aim input, or Move if nothing is aiming, at `ShotAimTurnSpeed`. It is written into `CharacterInput.Aim`, so the server fires exactly where the owner saw it. The carrier moves at `ShotChargeSpeedMultiplier` and can't sprint.
+  * `ShotAimIndicator` draws the aim line for everyone from the values below.
+  * **For animation**, `CharacterNetworkController` works the same on every machine: `IsChargingShot`, `ShotCharge` (0 to 1), `ShotAim` (a world-space direction) and the `ShotFired` event (direction and charge), which fires for every shot, charged or not.
 * **Stripping** - any attack or tackle that lands on an opponent carrier knocks the ball back towards the hitter and staggers the carrier for a second. A new carrier can't be stripped for a second, and a stripped or throwing player can't grab the ball straight back. Without these two rules, two players just traded the ball on the spot.
 * **Stagger** is a tick-based SyncVar on the body, so the owning client and the server agree on it; a staggered body's input is replaced with nothing.
 * Only the server acts on the ball. Actions also run on the owning client (`RunLocally`), but there they just draw debug rays.
