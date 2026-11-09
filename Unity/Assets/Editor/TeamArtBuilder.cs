@@ -224,6 +224,7 @@ namespace Builders
 				tree.AddChild(motion, speed);
 			}
 
+			BallAnimationBuilder.AddLayer(controller);
 			return controller;
 		}
 

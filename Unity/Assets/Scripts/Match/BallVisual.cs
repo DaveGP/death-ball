@@ -34,10 +34,15 @@ namespace Match
 		private CharacterNetworkController lastCarrier;
 
 		private Vector3 blendOffset;
+		private Character.Visuals.CharacterArt carrierArt;
+		private bool lastHadHandTarget;
+		private float visualRadius;
 
 		private void Awake()
 		{
 			ball = GetComponent<Ball>();
+			var renderer = visual.GetComponent<Renderer>();
+			visualRadius = renderer != null ? Mathf.Max(renderer.bounds.extents.x, renderer.bounds.extents.y, renderer.bounds.extents.z) : 0f;
 		}
 
 		// Late, so bodies and the ball have taken this frame's network updates
@@ -45,9 +50,15 @@ namespace Match
 		{
 			var carrier = ball.Carrier;
 
-			var target = carrier != null ? ball.HoldPosition(carrier) : transform.position;
-
 			if (carrier != lastCarrier)
+				carrierArt = carrier != null ? carrier.GetComponent<Character.Visuals.CharacterArt>() : null;
+
+			var target = carrier != null ? ball.HoldPosition(carrier) : transform.position;
+			var handTarget = Vector3.zero;
+			var hasHandTarget = carrierArt != null && carrierArt.TryGetBallPosition(visualRadius, out handTarget);
+			if (hasHandTarget) target = handTarget;
+
+			if (carrier != lastCarrier || hasHandTarget != lastHadHandTarget)
 			{
 				blendOffset = visual.position - target;
 
@@ -55,6 +66,7 @@ namespace Match
 					blendOffset = Vector3.zero;
 
 				lastCarrier = carrier;
+				lastHadHandTarget = hasHandTarget;
 			}
 
 			blendOffset = Vector3.MoveTowards(blendOffset, Vector3.zero, (carrier != null ? pickupBlendSpeed : releaseBlendSpeed) * Time.deltaTime);
