@@ -11,5 +11,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Arena.unity
     guid: c3e668c75087049f8bde89c25473156b
+  - enabled: 1
+    path: Assets/ThirdParty/Synty/DeathBallArenas/NightMarket/NightMarket.unity
+    guid: be1e1d0587ebb44fda21af8cb472280a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

@@ -109,10 +109,23 @@ namespace Builders
 			EditorSceneManager.SaveScene(scene);
 			AssetDatabase.SaveAssets();
 
+			AddToBuildSettings();
+
 			if (!string.IsNullOrEmpty(previousScene))
 				EditorSceneManager.OpenScene(previousScene, OpenSceneMode.Single);
 
 			Debug.Log($"{nameof(NightMarketBuilder)}: built {ScenePath}");
+		}
+
+		// The game can only load a scene that's in the list
+		private static void AddToBuildSettings()
+		{
+			var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+
+			if (scenes.TrueForAll(s => s.path != ScenePath))
+				scenes.Add(new EditorBuildSettingsScene(ScenePath, true));
+
+			EditorBuildSettings.scenes = scenes.ToArray();
 		}
 
 		private static void ReskinArena()

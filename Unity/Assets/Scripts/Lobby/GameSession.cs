@@ -37,7 +37,11 @@ namespace Lobby
 		private string menuSceneName = "MainMenu";
 
 		[SerializeField]
-		private string arenaSceneName = "Arena";
+		private string arenaSceneName = "NightMarket";
+
+		// The arena above needs the art packs, which aren't in the repo, so a clone without them plays here
+		[SerializeField]
+		private string fallbackArenaSceneName = "Arena";
 
 		[SerializeField]
 		private NetworkObject lobbyStatePrefab;
@@ -160,7 +164,9 @@ namespace Lobby
 
 			ServiceLocator.Get<MatchSettings>().FromLobby = true;
 
-			networkManager.SceneManager.LoadScene(arenaSceneName, LoadSceneMode.Single);
+			var arena = Application.CanStreamedLevelBeLoaded(arenaSceneName) ? arenaSceneName : fallbackArenaSceneName;
+
+			networkManager.SceneManager.LoadScene(arena, LoadSceneMode.Single);
 		}
 
 		/// <summary>

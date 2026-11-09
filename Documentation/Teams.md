@@ -167,7 +167,7 @@ Theme: a serene monastery courtyard floating above the clouds, in rust red and c
 
 ## Before building these
 
-* **Not tested in the game:** all but one of the packs' 39 character models report a humanoid rig, so they should work with shared animations, but none has been animated yet. `SM_Chr_Fancy_Bot_01`, the top-hatted bot, has no rig, so it isn't used.
+* **Rigs:** all but one of the packs' 39 character models report a humanoid rig, and the team models share the locomotion and ball-handling animations. `SM_Chr_Fancy_Bot_01`, the top-hatted bot, has no rig, so it isn't used.
 * **Public repo:** the packs aren't in git, so any committed scene or prefab that uses them will have missing assets on a fresh clone. The WebGL build will also grow as each level pulls in pack assets.
 
 ## Spare models

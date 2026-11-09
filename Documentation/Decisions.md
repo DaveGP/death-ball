@@ -105,3 +105,7 @@ The same test found that NGO recalculates a prefab's hash whenever the editor va
 The owner works out the aim and writes it into the input it sends. The server used to fall back on its own copy of the body's facing, which trails a remote owner by the round trip, so a charged shot could leave in a different direction from the line the player lined up. The charge itself is counted per input tick on both machines, so lag doesn't add power.
 
 The AI doesn't charge. Its numbers were tuned around standard shots, and a charging AI would need its own judgement about when to stand still.
+
+## The Night Market is the arena, with a fallback
+
+09/11/2026 - Matches now play in The Night Market. Its scene depends on the Synty packs and stays out of the public repo, so `GameSession` checks it can be loaded and otherwise uses the plain Arena, which is what a fresh clone gets. `WebGLBuilder` only includes the scene if it exists. The host's choice applies to everyone because all players run the same build. The cost is that web builds made without the packs play a different level.
