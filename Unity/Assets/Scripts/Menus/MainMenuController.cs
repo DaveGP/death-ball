@@ -65,6 +65,12 @@ namespace Menus
 		private Text awayListText;
 
 		[SerializeField]
+		private LobbyPlayerList homePlayerList;
+
+		[SerializeField]
+		private LobbyPlayerList awayPlayerList;
+
+		[SerializeField]
 		private Button matchLengthButton;
 
 		[SerializeField]
@@ -114,7 +120,7 @@ namespace Menus
 			startMatchButton.onClick.AddListener(StartMatch);
 			leaveButton.onClick.AddListener(() => gameSession.Leave());
 
-			statusText.text = string.Empty;
+			statusText.text = "Ready to play";
 		}
 
 		private void OnDestroy()
@@ -132,7 +138,7 @@ namespace Menus
 
 			if (!inLobby)
 			{
-				statusText.text = gameSession.Status;
+				statusText.text = string.IsNullOrEmpty(gameSession.Status) ? "Ready to play" : gameSession.Status;
 
 				// A controller can start local play from here too. Not Enter, which also ends typing a name.
 				if (WasStartPressed(false) && !gameSession.IsBusy)
@@ -305,35 +311,45 @@ namespace Menus
 				? "Press a button on a keyboard or controller to add a player"
 				: "Left / right: team    Up / down: player type    Another controller: add a player";
 
-			var hosting = gameSession.IsOnline ? $"Hosting online - join code {gameSession.JoinCode}" : "Playing locally";
+			var code = gameSession.JoinCode;
+			var sessionLabel = string.IsNullOrEmpty(code) ? string.Empty : $"JOIN CODE {code}   /   ";
+			var hosting = gameSession.IsOnline ? "Hosting online" : "Playing locally";
 
 			lobbyInfoText.text = isHost
-				? $"{hosting}. {match}. Press Start or Enter to begin.\n{controls}"
-				: $"Waiting for the host to start. {match}.\n{controls}";
+				? $"{sessionLabel}{hosting}. {match}. Press Start or Enter to begin.\n{controls}"
+				: $"{sessionLabel}Waiting for the host to start. {match}.\n{controls}";
 
-			homeListText.text = TeamList(TeamSide.Home);
-			awayListText.text = TeamList(TeamSide.Away);
+			RefreshTeam(TeamSide.Home, homeListText, homePlayerList);
+			RefreshTeam(TeamSide.Away, awayListText, awayPlayerList);
 
-			matchLengthButton.GetComponentInChildren<Text>().text = match;
+			matchLengthButton.GetComponentInChildren<Text>().text = match.ToUpperInvariant();
 		}
 
-		private string TeamList(TeamSide team)
+		private void RefreshTeam(TeamSide team, Text listText, LobbyPlayerList list)
 		{
+			var players = lobbyState.Entries.Where(entry => entry.Team == team)
+				.OrderBy(entry => entry.ClientId).ThenBy(entry => entry.LocalIndex);
+			var localClientId = networkManager.LocalClientId;
+
+			if (list != null)
+			{
+				list.Show(players, localClientId);
+				return;
+			}
+
 			var text = new StringBuilder();
 
 			text.AppendLine(team == TeamSide.Home ? "HOME" : "AWAY");
 			text.AppendLine();
 
-			var localClientId = networkManager.LocalClientId;
-
-			foreach (var entry in lobbyState.Entries.Where(e => e.Team == team).OrderBy(e => e.ClientId).ThenBy(e => e.LocalIndex))
+			foreach (var entry in players)
 			{
 				var isLocal = entry.ClientId == localClientId;
 
 				text.AppendLine($"{(isLocal ? "> " : "")}{entry.Name}  {entry.Type}");
 			}
 
-			return text.ToString();
+			listText.text = text.ToString();
 		}
 
 		private static bool WasStartPressed(bool includeEnter)

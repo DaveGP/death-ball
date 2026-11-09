@@ -7,7 +7,7 @@
 * **Death Ball > Build Main Menu Scene** regenerates the scene, the `NetworkManager` and `LobbyState` prefabs and the networked prefab list from scratch, and puts the menu first in the build settings with the arena after it.
 * **Death Ball > Build Arena Scene** regenerates the arena and keeps it after the menu.
 
-Layout lives in `Assets/Editor/MainMenuSceneBuilder.cs`. Hand edits to the scene are lost on the next rebuild. The UI is grey-box: Unity's built-in UI text and default controls.
+Layout lives in `Assets/Editor/MainMenuSceneBuilder.cs`. Hand edits to the scene are lost on the next rebuild. See [UI art](UiArt.md) for its art and type.
 
 ## Flow
 

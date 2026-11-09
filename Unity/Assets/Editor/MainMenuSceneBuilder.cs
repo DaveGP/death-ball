@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using Data.Enums;
 using Menus;
 using Networking;
 using Players;
@@ -14,19 +16,15 @@ using UnityEngine.UI;
 namespace Builders
 {
 	/// <summary>
-	/// Builds the grey-box main menu scene: a start screen to host or join, and the lobby.
-	/// Run again after changing it; it overwrites the scene and lobby prefab it made before.
+	/// Builds the main menu scene: a start screen to host or join, and the lobby.
+	/// Run again after changing it to regenerate the scene.
 	/// </summary>
 	public static class MainMenuSceneBuilder
 	{
 		public const string ScenePath = "Assets/Scenes/MainMenu.unity";
 
 
-		private static readonly Color BackgroundColour = new(0.08f, 0.08f, 0.1f);
-
-		private static readonly Color PanelColour = new(0f, 0f, 0f, 0.4f);
-
-		private static readonly Color AccentColour = new(0.85f, 0.2f, 0.1f);
+		private static readonly Color BackgroundColour = new Color32(14, 17, 22, 255);
 
 		[MenuItem("Death Ball/Build Main Menu Scene")]
 		public static void Build()
@@ -87,34 +85,82 @@ namespace Builders
 
 			var root = canvasObject.transform;
 
-			CreateText("Title", root, "DEATH BALL", 120, new Vector2(0f, 380f), new Vector2(1400f, 160f), AccentColour);
+			CreateBroadcast(root);
 
 			var controller = canvasObject.AddComponent<MainMenuController>();
 
 			CreateStartPanel(root, controller);
-
 			CreateLobbyPanel(root, controller);
+		}
+
+		private static void CreateBroadcast(Transform root)
+		{
+			var background = DeathBallUiArt.Image("Arena Feed", root, "Menu-Arena", Vector2.zero, Vector2.zero);
+			var fitter = background.gameObject.AddComponent<AspectRatioFitter>();
+			fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+			fitter.aspectRatio = 16f / 9f;
+
+			CreateRail(root, "Top Broadcast Rail", new Vector2(0.5f, 1f), -53f,
+				"ARENA FEED", "HALCYON SPORTS NETWORK / 01");
+			CreateRail(root, "Bottom Broadcast Rail", new Vector2(0.5f, 0f), 53f,
+				"SANCTIONED ARENA SPORT", "4 v 4 / SEALED ARENA");
+		}
+
+		private static void CreateRail(Transform root, string name, Vector2 anchor, float y, string left, string right)
+		{
+			var rail = DeathBallUiArt.Rect(name, root, new Vector2(0f, y), new Vector2(1760f, 42f));
+			rail.anchorMin = rail.anchorMax = anchor;
+
+			var line = DeathBallUiArt.Image("Rule", rail, null, new Vector2(0f, 20f), new Vector2(1760f, 1f));
+			line.color = DeathBallUiArt.Steel;
+			DeathBallUiArt.Text("Left", rail, left, 18, new Vector2(-550f, -4f), new Vector2(640f, 28f),
+				DeathBallUiArt.Mono, TextAnchor.MiddleLeft);
+			DeathBallUiArt.Text("Right", rail, right, 18, new Vector2(550f, -4f), new Vector2(640f, 28f),
+				DeathBallUiArt.Mono, TextAnchor.MiddleRight);
+
+			if (anchor.y == 1f)
+			{
+				var live = DeathBallUiArt.Image("Live Plate", rail, null, new Vector2(-848f, -4f), new Vector2(64f, 28f));
+				live.color = DeathBallUiArt.Red;
+				DeathBallUiArt.Text("Live", live.transform, "LIVE", 18, Vector2.zero, live.rectTransform.sizeDelta, DeathBallUiArt.Mono);
+				rail.Find("Left").GetComponent<RectTransform>().anchoredPosition += new Vector2(82f, 0f);
+			}
 		}
 
 		private static void CreateStartPanel(Transform root, MainMenuController controller)
 		{
-			var panel = CreatePanel("Start Panel", root, new Vector2(0f, -90f), new Vector2(640f, 700f));
+			var start = DeathBallUiArt.Rect("Start Screen", root, Vector2.zero, Vector2.zero);
+			var logo = DeathBallUiArt.Image("Death Ball", start, "Death-Ball-Stacked", new Vector2(-510f, -7f), new Vector2(684f, 470f));
+			logo.preserveAspect = true;
+			DeathBallUiArt.Text("Sponsor", start, "A HALCYON HOLDINGS BROADCAST", 22,
+				new Vector2(-408f, -223f), new Vector2(780f, 35f), DeathBallUiArt.Mono, TextAnchor.MiddleLeft);
 
-			var nameInput = CreateInputField("Name", panel, "Your name", new Vector2(0f, 270f));
+			var panel = DeathBallUiArt.Image("Match Access", start, "Panel", new Vector2(425f, 130f), new Vector2(650f, 512f)).rectTransform;
+			DeathBallUiArt.Text("Heading", panel, "MATCH ACCESS", 58, new Vector2(0f, 191f), new Vector2(560f, 84f),
+				DeathBallUiArt.Display, TextAnchor.MiddleLeft);
+			CreateLabel(panel, "PLAYER NAME", 132f);
+			var nameInput = CreateInputField("Name", panel, "Your name", new Vector2(0f, 85f), 560f, DeathBallUiArt.Bold);
 
-			var local = CreateButton("Play Local", panel, "Play Local", new Vector2(0f, 170f));
-			var host = CreateButton("Host Online", panel, "Host Online", new Vector2(0f, 85f));
+			var local = CreateButton("Play Local", panel, "PLAY LOCAL", new Vector2(-143f, 3f), 274f);
+			var priority = DeathBallUiArt.Image("Priority", local.transform, null, new Vector2(-123f, 0f), new Vector2(5f, 32f));
+			priority.color = DeathBallUiArt.Red;
+			var host = CreateButton("Host Online", panel, "HOST ONLINE", new Vector2(143f, 3f), 274f);
 
-			var codeInput = CreateInputField("Join Code", panel, "Join code", new Vector2(0f, -15f));
-			var join = CreateButton("Join", panel, "Join", new Vector2(0f, -100f));
+			var rule = DeathBallUiArt.Image("Access Rule", panel, null, new Vector2(0f, -48f), new Vector2(560f, 1f));
+			rule.color = DeathBallUiArt.Steel;
+			CreateLabel(panel, "JOIN CODE", -77f);
+			var codeInput = CreateInputField("Join Code", panel, "ENTER CODE", new Vector2(-82f, -124f), 396f, DeathBallUiArt.Mono);
+			var join = CreateButton("Join", panel, "JOIN", new Vector2(204f, -124f), 152f, 64f);
 
-			var quit = CreateButton("Quit", panel, "Quit", new Vector2(0f, -195f));
-
-			var status = CreateText("Status", panel, string.Empty, 26, new Vector2(0f, -285f), new Vector2(620f, 90f), Color.white);
+			var quit = CreateButton("Quit", panel, "QUIT", new Vector2(227f, -201f), 106f, 44f);
+			var statusLight = DeathBallUiArt.Image("Status Light", panel, null, new Vector2(-275f, -201f), new Vector2(9f, 9f));
+			statusLight.color = DeathBallUiArt.Yellow;
+			var status = DeathBallUiArt.Text("Status", panel, string.Empty, 20, new Vector2(-54f, -201f), new Vector2(416f, 60f),
+				DeathBallUiArt.Mono, TextAnchor.MiddleLeft);
 
 			SetReferences(controller, new Dictionary<string, Object>
 			{
-				["startPanel"] = panel.gameObject,
+				["startPanel"] = start.gameObject,
 				["nameInput"] = nameInput,
 				["codeInput"] = codeInput,
 				["localButton"] = local,
@@ -125,21 +171,27 @@ namespace Builders
 			});
 		}
 
+		private static void CreateLabel(Transform parent, string label, float y)
+		{
+			DeathBallUiArt.Text(label, parent, label, 21, new Vector2(0f, y), new Vector2(560f, 30f),
+				DeathBallUiArt.Mono, TextAnchor.MiddleLeft);
+		}
+
 		private static void CreateLobbyPanel(Transform root, MainMenuController controller)
 		{
-			var panel = CreatePanel("Lobby Panel", root, new Vector2(0f, -80f), new Vector2(1500f, 760f));
+			var panel = DeathBallUiArt.Image("Lobby Panel", root, "Panel", Vector2.zero, new Vector2(1500f, 864f)).rectTransform;
 
-			var info = CreateText("Info", panel, string.Empty, 28, new Vector2(0f, 300f), new Vector2(1400f, 100f), Color.white);
+			DeathBallUiArt.Text("Heading", panel, "MATCH LOBBY", 60, new Vector2(0f, 360f), new Vector2(1320f, 88f),
+				DeathBallUiArt.Display);
+			var info = DeathBallUiArt.Text("Info", panel, string.Empty, 22, new Vector2(0f, 283f),
+				new Vector2(1320f, 90f), DeathBallUiArt.Mono);
 
-			var home = CreateText("Home List", panel, string.Empty, 36, new Vector2(-370f, 20f), new Vector2(620f, 420f), new Color(1f, 0.55f, 0.5f));
-			home.alignment = TextAnchor.UpperCenter;
+			var home = CreateLobbyColumn(panel, "Home", -350f);
+			var away = CreateLobbyColumn(panel, "Away", 350f);
 
-			var away = CreateText("Away List", panel, string.Empty, 36, new Vector2(370f, 20f), new Vector2(620f, 420f), new Color(0.55f, 0.7f, 1f));
-			away.alignment = TextAnchor.UpperCenter;
-
-			var matchLength = CreateButton("Match Length", panel, "Match length", new Vector2(-420f, -300f));
-			var start = CreateButton("Start Match", panel, "Start Match", new Vector2(0f, -300f));
-			var leave = CreateButton("Leave", panel, "Leave", new Vector2(420f, -300f));
+			var matchLength = CreateButton("Match Length", panel, "MATCH LENGTH", new Vector2(-415f, -352f));
+			var start = CreateButton("Start Match", panel, "START MATCH", new Vector2(0f, -352f));
+			var leave = CreateButton("Leave", panel, "LEAVE", new Vector2(415f, -352f));
 
 			panel.gameObject.SetActive(false);
 
@@ -147,87 +199,124 @@ namespace Builders
 			{
 				["lobbyPanel"] = panel.gameObject,
 				["lobbyInfoText"] = info,
-				["homeListText"] = home,
-				["awayListText"] = away,
+				["homeListText"] = home.Header,
+				["awayListText"] = away.Header,
+				["homePlayerList"] = home.List,
+				["awayPlayerList"] = away.List,
 				["matchLengthButton"] = matchLength,
 				["startMatchButton"] = start,
 				["leaveButton"] = leave,
 			});
 		}
 
-		private static RectTransform CreatePanel(string name, Transform parent, Vector2 position, Vector2 size)
+		private static (Text Header, LobbyPlayerList List) CreateLobbyColumn(Transform panel, string side, float x)
 		{
-			var panel = new GameObject(name).AddComponent<RectTransform>();
-			panel.SetParent(parent, false);
-			panel.anchoredPosition = position;
-			panel.sizeDelta = size;
+			var plate = DeathBallUiArt.Image($"{side} Plate", panel, $"Lobby-{side}", new Vector2(x, 188f), new Vector2(620f, 58f));
+			var header = DeathBallUiArt.Text($"{side} List", plate.transform, side.ToUpperInvariant(), 35, Vector2.zero, plate.rectTransform.sizeDelta);
 
-			panel.gameObject.AddComponent<Image>().color = PanelColour;
+			var viewport = DeathBallUiArt.Rect($"{side} Players", panel, new Vector2(x, -73f), new Vector2(620f, 450f));
+			viewport.gameObject.AddComponent<RectMask2D>();
+			viewport.gameObject.AddComponent<Image>().color = Color.clear;
+			var scroll = viewport.gameObject.AddComponent<ScrollRect>();
+			scroll.viewport = viewport;
+			scroll.horizontal = false;
+			scroll.movementType = ScrollRect.MovementType.Clamped;
 
-			return panel;
+			var content = DeathBallUiArt.Rect("Rows", viewport, Vector2.zero, Vector2.zero);
+			content.anchorMin = new Vector2(0f, 1f);
+			content.anchorMax = Vector2.one;
+			content.pivot = new Vector2(0.5f, 1f);
+			var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+			layout.spacing = 7f;
+			layout.childControlHeight = false;
+			layout.childForceExpandHeight = false;
+			content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+			scroll.content = content;
+
+			var row = DeathBallUiArt.Image("Player Row", content, "Lobby-Row", Vector2.zero, new Vector2(620f, 62f));
+			var name = DeathBallUiArt.Text("Player Name", row.transform, string.Empty, 29,
+				new Vector2(-106f, 0f), new Vector2(368f, 48f), DeathBallUiArt.Bold, TextAnchor.MiddleLeft);
+			name.resizeTextForBestFit = true;
+			name.resizeTextMinSize = 20;
+			name.resizeTextMaxSize = 29;
+			var role = DeathBallUiArt.Text("Role", row.transform, string.Empty, 23,
+				new Vector2(208f, 0f), new Vector2(150f, 48f), DeathBallUiArt.Bold, TextAnchor.MiddleRight);
+			var roleIcon = DeathBallUiArt.Image("Role Icon", row.transform, null, new Vector2(117f, 0f), new Vector2(36f, 36f));
+			var view = row.gameObject.AddComponent<LobbyPlayerRow>();
+			SetReferences(view, new Dictionary<string, Object>
+			{
+				["background"] = row, ["playerName"] = name, ["role"] = role, ["roleIcon"] = roleIcon,
+				["normal"] = row.sprite, ["selected"] = DeathBallUiArt.Sprite("Lobby-Row-Selected")
+			});
+			ArenaSceneBuilder.SetSerializedArray(view, "roleIcons",
+				System.Enum.GetValues(typeof(PlayerType)).Cast<PlayerType>().Select(type => (Object)DeathBallUiArt.Sprite($"Role-{type}")).ToArray());
+			row.gameObject.SetActive(false);
+
+			var list = viewport.gameObject.AddComponent<LobbyPlayerList>();
+			ArenaSceneBuilder.SetSerializedReference(list, "rowTemplate", view);
+			return (header, list);
 		}
 
-		private static Text CreateText(string name, Transform parent, string content, int fontSize, Vector2 position, Vector2 size, Color colour)
+		private static Button CreateButton(string name, Transform parent, string label, Vector2 position, float width = 380f, float height = 70f)
 		{
-			var rectTransform = new GameObject(name).AddComponent<RectTransform>();
-			rectTransform.SetParent(parent, false);
-			rectTransform.anchoredPosition = position;
-			rectTransform.sizeDelta = size;
-
-			var text = rectTransform.gameObject.AddComponent<Text>();
-			text.font = Font;
-			text.text = content;
-			text.fontSize = fontSize;
-			text.fontStyle = FontStyle.Bold;
-			text.alignment = TextAnchor.MiddleCenter;
-			text.color = colour;
-			text.raycastTarget = false;
-
-			return text;
-		}
-
-		private static Button CreateButton(string name, Transform parent, string label, Vector2 position)
-		{
-			var button = DefaultControls.CreateButton(Resources);
-
+			var button = DefaultControls.CreateButton(default);
 			button.name = name;
-
-			var rectTransform = (RectTransform)button.transform;
-			rectTransform.SetParent(parent, false);
-			rectTransform.anchoredPosition = position;
-			rectTransform.sizeDelta = new Vector2(380f, 70f);
+			var rect = (RectTransform)button.transform;
+			rect.SetParent(parent, false);
+			rect.anchoredPosition = position;
+			rect.sizeDelta = new Vector2(width, height);
 
 			var text = button.GetComponentInChildren<Text>();
-			text.font = Font;
+			text.font = DeathBallUiArt.Bold;
 			text.text = label;
-			text.fontSize = 32;
-			text.fontStyle = FontStyle.Bold;
+			text.fontSize = height < 50f ? 26 : 34;
+			text.color = DeathBallUiArt.Paper;
+			text.raycastTarget = false;
 
-			return button.GetComponent<Button>();
+			var control = button.GetComponent<Button>();
+			Skin(control, "Button-Normal", "Button-Highlighted", "Button-Pressed", "Button-Disabled");
+			return control;
 		}
 
-		private static InputField CreateInputField(string name, Transform parent, string placeholder, Vector2 position)
+		private static InputField CreateInputField(string name, Transform parent, string placeholder, Vector2 position, float width, Font font)
 		{
-			var field = DefaultControls.CreateInputField(Resources);
-
+			var field = DefaultControls.CreateInputField(default);
 			field.name = name;
-
-			var rectTransform = (RectTransform)field.transform;
-			rectTransform.SetParent(parent, false);
-			rectTransform.anchoredPosition = position;
-			rectTransform.sizeDelta = new Vector2(500f, 64f);
+			var rect = (RectTransform)field.transform;
+			rect.SetParent(parent, false);
+			rect.anchoredPosition = position;
+			rect.sizeDelta = new Vector2(width, 64f);
 
 			var input = field.GetComponent<InputField>();
-
 			foreach (var text in field.GetComponentsInChildren<Text>(true))
 			{
-				text.font = Font;
-				text.fontSize = 30;
+				text.font = font;
+				text.fontSize = 29;
+				text.fontStyle = FontStyle.Normal;
+				text.alignment = TextAnchor.MiddleLeft;
+				text.color = DeathBallUiArt.Paper;
+				text.rectTransform.offsetMin = new Vector2(16f, 4f);
+				text.rectTransform.offsetMax = new Vector2(-16f, -4f);
 			}
 
-			((Text)input.placeholder).text = placeholder;
-
+			var hint = (Text)input.placeholder;
+			hint.text = placeholder;
+			hint.color = new Color32(177, 184, 193, 255);
+			Skin(input, "Input-Normal", "Input-Selected", "Input-Selected", "Input-Normal");
 			return input;
+		}
+
+		private static void Skin(Selectable control, string normal, string highlighted, string pressed, string disabled)
+		{
+			DeathBallUiArt.SetSprite((Image)control.targetGraphic, normal);
+			control.transition = Selectable.Transition.SpriteSwap;
+			control.spriteState = new SpriteState
+			{
+				highlightedSprite = DeathBallUiArt.Sprite(highlighted),
+				selectedSprite = DeathBallUiArt.Sprite(highlighted),
+				pressedSprite = DeathBallUiArt.Sprite(pressed),
+				disabledSprite = DeathBallUiArt.Sprite(disabled)
+			};
 		}
 
 		private static void SetReferences(Object target, Dictionary<string, Object> references)
@@ -250,12 +339,5 @@ namespace Builders
 			EditorBuildSettings.scenes = scenes.ToArray();
 		}
 
-		private static Font Font => UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-		private static DefaultControls.Resources Resources => new()
-		{
-			standard = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd"),
-			inputField = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/InputFieldBackground.psd"),
-		};
 	}
 }
