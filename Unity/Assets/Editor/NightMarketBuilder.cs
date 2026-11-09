@@ -104,6 +104,8 @@ namespace Builders
 			foreach (var renderer in scenery.GetComponentsInChildren<Renderer>(true))
 				renderer.shadowCastingMode = ShadowCastingMode.Off;
 
+			MakeHologramsWorkInBrowsers(scene);
+
 			SetLighting();
 
 			EditorSceneManager.SaveScene(scene);
@@ -115,6 +117,70 @@ namespace Builders
 				EditorSceneManager.OpenScene(previousScene, OpenSceneMode.Single);
 
 			Debug.Log($"{nameof(NightMarketBuilder)}: built {ScenePath}");
+		}
+
+		// The pack's hologram shader asks for shader model 4.5, which WebGL doesn't have, so browsers draw
+		// it solid magenta. It doesn't use anything that needs 4.5, so holograms here use a copy that asks
+		// for less. The pack's own files stay as they shipped.
+		private static void MakeHologramsWorkInBrowsers(UnityEngine.SceneManagement.Scene scene)
+		{
+			var packShader = Shader.Find("SyntyStudios_Hologram_01");
+
+			if (packShader == null)
+				return;
+
+			var shaderPath = $"{Folder}/Hologram.shader";
+
+			var source = System.IO.File.ReadAllText(AssetDatabase.GetAssetPath(packShader))
+				.Replace("Shader \"SyntyStudios_Hologram_01\"", "Shader \"DeathBall/Hologram\"")
+				.Replace("#pragma target 4.5", "#pragma target 3.5");
+
+			System.IO.File.WriteAllText(shaderPath, source);
+
+			AssetDatabase.ImportAsset(shaderPath);
+
+			var shader = AssetDatabase.LoadAssetAtPath<Shader>(shaderPath);
+
+			var copies = new Dictionary<Material, Material>();
+
+			foreach (var root in scene.GetRootGameObjects())
+			{
+				foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+				{
+					var materials = renderer.sharedMaterials;
+
+					var changed = false;
+
+					for (var i = 0; i < materials.Length; i++)
+					{
+						if (materials[i] == null || materials[i].shader != packShader)
+							continue;
+
+						if (!copies.TryGetValue(materials[i], out var copy))
+							copies[materials[i]] = copy = HologramCopy(materials[i], shader);
+
+						materials[i] = copy;
+
+						changed = true;
+					}
+
+					if (changed)
+						renderer.sharedMaterials = materials;
+				}
+			}
+		}
+
+		private static Material HologramCopy(Material original, Shader shader)
+		{
+			var path = $"{Folder}/Materials/{original.name}.mat";
+
+			AssetDatabase.DeleteAsset(path);
+
+			var copy = new Material(original) { shader = shader };
+
+			AssetDatabase.CreateAsset(copy, path);
+
+			return copy;
 		}
 
 		// The game can only load a scene that's in the list

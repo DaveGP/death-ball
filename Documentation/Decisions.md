@@ -109,3 +109,7 @@ The AI doesn't charge. Its numbers were tuned around standard shots, and a charg
 ## The Night Market is the arena, with a fallback
 
 09/11/2026 - Matches now play in The Night Market. Its scene depends on the Synty packs and stays out of the public repo, so `GameSession` checks it can be loaded and otherwise uses the plain Arena, which is what a fresh clone gets. `WebGLBuilder` only includes the scene if it exists. The host's choice applies to everyone because all players run the same build. The cost is that web builds made without the packs play a different level.
+
+## The Night Market uses its own copy of the hologram shader
+
+09/11/2026 - Synty's hologram shader asks for shader model 4.5, which WebGL doesn't have, so holograms worked in the Editor but were solid magenta in browsers. `NightMarketBuilder` writes a copy that asks for 3.5, plus copies of the materials that use it, into the home ground's ignored folder. That keeps the hologram look and leaves the pack as it shipped, unlike swapping to URP's unlit shader. New home grounds using these holograms need the same step, and need checking in a browser, because the Editor doesn't show this problem.
