@@ -46,4 +46,14 @@ The WebGL build succeeded. Unity’s detailed build report measured **2,443,838 
 
 A headless Chrome smoke test verified that Quit is hidden, the join-code field accepts input and shows its yellow focus outline, Play Local opens the lobby, Leave returns to the menu, and Start Match loads the scoreboard. Live Relay and physical couch co-op controllers were outside this smoke test.
 
-Those checks ran on Netcode for GameObjects 2.13.3. After moving back to 3.1.0, the project compiled and an Editor Play mode run went from the menu through Play Local and the lobby into a match with no console errors from the game. That run didn't capture the screens, and the WebGL build, the Chrome smoke test and Relay haven't been repeated on 3.1.0.
+Those checks ran on Netcode for GameObjects 2.13.3. After moving back to 3.1.0, the project compiled and an Editor Play mode run went from the menu through Play Local and the lobby into a match with no console errors from the game.
+
+A WebGL build on 3.1.0 succeeded at 29.6 MB. It was served locally and tested at 1280 × 800 in the desktop app's browser, all on one Mac:
+
+* The menu, lobby, score and clock plates and goal banner displayed correctly, and ORDER OF THE LAST RING fits on the score plate.
+* An Editor host and a browser client played a match over Relay, with the client typing its join code, and a goal was scored.
+* A browser host and a second browser, each signed in as a different player, joined one lobby and started a match. The client moved and carried the ball.
+
+A real internet connection between two machines, the GitHub Pages copy and physical couch co-op controllers weren't tested.
+
+Known issue, not caused by the UI: when a client leaves mid-match, their body is destroyed but stays on the team's list. The next goal then throws an error during the reset and the host's clock stays frozen.
